@@ -30,9 +30,10 @@ pub enum TokenType {
     SLASH,    // /
 
     // 关系运算符
-    LT, // <
-    GT, // >
-    EQ, // ==
+    LT,     // <
+    GT,     // >
+    EQ,     // ==
+    NotEq, // !=
 
     // 分隔符
     COMMA,     // ,
@@ -69,6 +70,7 @@ impl TokenType {
             TokenType::LT => "<",
             TokenType::GT => ">",
             TokenType::EQ => "==",
+            TokenType::NotEq => "!=",
             TokenType::COMMA => ",",
             TokenType::SEMICOLON => ";",
             TokenType::LPAREN => "(",

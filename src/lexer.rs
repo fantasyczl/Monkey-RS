@@ -36,48 +36,62 @@ impl Lexer {
         // 跳过空格和换行符
         self.skip_whitespace();
 
+        let binging = self.ch.to_string();
+        let char = binging.as_str();
         match self.ch {
             '=' => {
-                token = Token::new(TokenType::ASSIGN, "=");
+                if self.peek_char() == '=' {
+                    let ch = self.ch; // 保存当前字符
+                    self.read_char(); // consume the next '='
+                    token = Token::new(TokenType::EQ, &format!("{}{}", ch, self.ch));
+                } else {
+                    token = Token::new(TokenType::ASSIGN, char);
+                }
             }
             ';' => {
-                token = Token::new(TokenType::SEMICOLON, ";");
+                token = Token::new(TokenType::SEMICOLON, char);
             }
             '!' => {
-                token = Token::new(TokenType::BANG, "!");
+                if self.peek_char() == '=' {
+                    let ch = self.ch; // 保存当前字符
+                    self.read_char(); // consume the next '='
+                    token = Token::new(TokenType::NotEq, &format!("{}{}", ch, self.ch));
+                } else {
+                    token = Token::new(TokenType::BANG, char);
+                }
             }
             '-' => {
-                token = Token::new(TokenType::MINUS, "-");
+                token = Token::new(TokenType::MINUS, char);
             }
             '/' => {
-                token = Token::new(TokenType::SLASH, "/");
+                token = Token::new(TokenType::SLASH, char);
             }
             '*' => {
-                token = Token::new(TokenType::ASTERISK, "*");
+                token = Token::new(TokenType::ASTERISK, char);
             }
             '(' => {
-                token = Token::new(TokenType::LPAREN, "(");
+                token = Token::new(TokenType::LPAREN, char);
             }
             ')' => {
-                token = Token::new(TokenType::RPAREN, ")");
+                token = Token::new(TokenType::RPAREN, char);
             }
             '{' => {
-                token = Token::new(TokenType::LBRACE, "{");
+                token = Token::new(TokenType::LBRACE, char);
             }
             '}' => {
-                token = Token::new(TokenType::RBRACE, "}");
+                token = Token::new(TokenType::RBRACE, char);
             }
             ',' => {
-                token = Token::new(TokenType::COMMA, ",");
+                token = Token::new(TokenType::COMMA, char);
             }
             '+' => {
-                token = Token::new(TokenType::PLUS, "+");
+                token = Token::new(TokenType::PLUS, char);
             }
             '<' => {
-                token = Token::new(TokenType::LT, "<");
+                token = Token::new(TokenType::LT, char);
             }
             '>' => {
-                token = Token::new(TokenType::GT, ">");
+                token = Token::new(TokenType::GT, char);
             }
             '\0' => {
                 token = Token::new(TokenType::EOF, "");
@@ -123,6 +137,14 @@ impl Lexer {
         }
 
         self.input[position..self.position].to_string()
+    }
+
+    fn peek_char(&self) -> char {
+        if self.read_position >= self.input.len() {
+            '\0' // EOF
+        } else {
+            self.input[self.read_position..].chars().next().unwrap()
+        }
     }
 }
 
@@ -194,12 +216,15 @@ let add = fn(x, y) {
         let result = add(five, ten);
         !-/*5;
         5 < 10 > 5;
-        
+
         if (5 < 10) {
             return true;
         } else {
             return false;
         }
+
+        10 == 10;
+        10 != 9;
         "#;
 
         let tests = vec![
@@ -268,6 +293,13 @@ let add = fn(x, y) {
             (TokenType::FALSE, "false"),
             (TokenType::SEMICOLON, ";"),
             (TokenType::RBRACE, "}"),
+            (TokenType::INT, "10"),
+            (TokenType::EQ, "=="),
+            (TokenType::INT, "10"),
+            (TokenType::SEMICOLON, ";"),
+            (TokenType::INT, "10"),
+            (TokenType::NotEq, "!="),
+            (TokenType::INT, "9"),
         ];
 
         let mut lexer = Lexer::new(input);
