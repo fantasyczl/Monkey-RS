@@ -22,8 +22,17 @@ pub enum TokenType {
     INT,   // 123456
 
     // 运算符
-    ASSIGN, // =
-    PLUS,   // +
+    ASSIGN,   // =
+    PLUS,     // +
+    MINUS,    // -
+    BANG,     // !
+    ASTERISK, // *
+    SLASH,    // /
+
+    // 关系运算符
+    LT, // <
+    GT, // >
+    EQ, // ==
 
     // 分隔符
     COMMA,     // ,
@@ -37,6 +46,11 @@ pub enum TokenType {
     // 关键字
     FUNCTION, // function
     LET,      // let
+    IF,       // if
+    ELSE,     // else
+    RETURN,   // return
+    TRUE,     // true
+    FALSE,    // false
 }
 
 impl TokenType {
@@ -48,6 +62,13 @@ impl TokenType {
             TokenType::INT => "INT",
             TokenType::ASSIGN => "=",
             TokenType::PLUS => "+",
+            TokenType::MINUS => "-",
+            TokenType::BANG => "!",
+            TokenType::ASTERISK => "*",
+            TokenType::SLASH => "/",
+            TokenType::LT => "<",
+            TokenType::GT => ">",
+            TokenType::EQ => "==",
             TokenType::COMMA => ",",
             TokenType::SEMICOLON => ";",
             TokenType::LPAREN => "(",
@@ -56,6 +77,11 @@ impl TokenType {
             TokenType::RBRACE => "}",
             TokenType::FUNCTION => "FUNCTION",
             TokenType::LET => "LET",
+            TokenType::IF => "IF",
+            TokenType::ELSE => "ELSE",
+            TokenType::RETURN => "RETURN",
+            TokenType::TRUE => "TRUE",
+            TokenType::FALSE => "FALSE",
         }
     }
 
@@ -63,6 +89,11 @@ impl TokenType {
         match ident {
             "fn" => TokenType::FUNCTION,
             "let" => TokenType::LET,
+            "if" => TokenType::IF,
+            "else" => TokenType::ELSE,
+            "return" => TokenType::RETURN,
+            "true" => TokenType::TRUE,
+            "false" => TokenType::FALSE,
             _ => TokenType::IDENT,
         }
     }

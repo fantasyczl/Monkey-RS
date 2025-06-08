@@ -43,6 +43,18 @@ impl Lexer {
             ';' => {
                 token = Token::new(TokenType::SEMICOLON, ";");
             }
+            '!' => {
+                token = Token::new(TokenType::BANG, "!");
+            }
+            '-' => {
+                token = Token::new(TokenType::MINUS, "-");
+            }
+            '/' => {
+                token = Token::new(TokenType::SLASH, "/");
+            }
+            '*' => {
+                token = Token::new(TokenType::ASTERISK, "*");
+            }
             '(' => {
                 token = Token::new(TokenType::LPAREN, "(");
             }
@@ -60,6 +72,12 @@ impl Lexer {
             }
             '+' => {
                 token = Token::new(TokenType::PLUS, "+");
+            }
+            '<' => {
+                token = Token::new(TokenType::LT, "<");
+            }
+            '>' => {
+                token = Token::new(TokenType::GT, ">");
             }
             '\0' => {
                 token = Token::new(TokenType::EOF, "");
@@ -174,6 +192,14 @@ let add = fn(x, y) {
         };
         
         let result = add(five, ten);
+        !-/*5;
+        5 < 10 > 5;
+        
+        if (5 < 10) {
+            return true;
+        } else {
+            return false;
+        }
         "#;
 
         let tests = vec![
@@ -213,6 +239,35 @@ let add = fn(x, y) {
             (TokenType::IDENT, "ten"),
             (TokenType::RPAREN, ")"),
             (TokenType::SEMICOLON, ";"),
+            (TokenType::BANG, "!"),
+            (TokenType::MINUS, "-"),
+            (TokenType::SLASH, "/"),
+            (TokenType::ASTERISK, "*"),
+            (TokenType::INT, "5"),
+            (TokenType::SEMICOLON, ";"),
+            (TokenType::INT, "5"),
+            (TokenType::LT, "<"),
+            (TokenType::INT, "10"),
+            (TokenType::GT, ">"),
+            (TokenType::INT, "5"),
+            (TokenType::SEMICOLON, ";"),
+            (TokenType::IF, "if"),
+            (TokenType::LPAREN, "("),
+            (TokenType::INT, "5"),
+            (TokenType::LT, "<"),
+            (TokenType::INT, "10"),
+            (TokenType::RPAREN, ")"),
+            (TokenType::LBRACE, "{"),
+            (TokenType::RETURN, "return"),
+            (TokenType::TRUE, "true"),
+            (TokenType::SEMICOLON, ";"),
+            (TokenType::RBRACE, "}"),
+            (TokenType::ELSE, "else"),
+            (TokenType::LBRACE, "{"),
+            (TokenType::RETURN, "return"),
+            (TokenType::FALSE, "false"),
+            (TokenType::SEMICOLON, ";"),
+            (TokenType::RBRACE, "}"),
         ];
 
         let mut lexer = Lexer::new(input);
