@@ -1,6 +1,8 @@
 pub mod token;
 pub mod lexer;
 pub mod repl;
+mod ast;
+mod parser;
 
 use crate::repl::start_repl;
 

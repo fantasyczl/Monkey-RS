@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub tp: TokenType,
     pub literal: String,
