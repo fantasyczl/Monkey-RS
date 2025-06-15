@@ -29,19 +29,19 @@ impl Program {
     }
 }
 
-pub struct LetStatement<'a> {
+pub struct LetStatement {
     pub token: Token,
-    pub name: &'a Identifier,
-    pub value: &'a dyn Expression,
+    pub name: Box<Identifier>,
+    pub value: Box<dyn Expression>,
 }
 
-impl<'a> Node for LetStatement<'a> {
+impl<'a> Node for LetStatement {
     fn token_literal(&self) -> String {
         self.token.literal.clone()
     }
 }
 
-impl<'a> Statement for LetStatement<'a> {
+impl<'a> Statement for LetStatement {
     fn statement_node(&self) {}
     fn as_let_statement(&self) -> Option<&LetStatement> {
         Some(self)

@@ -1,6 +1,8 @@
-use crate::ast::{LetStatement, Program, Statement};
+use crate::ast::{Expression, Identifier, LetStatement, Program, Statement};
 use crate::lexer::Lexer;
+use crate::token::TokenType::{ASSIGN, IDENT, LET, SEMICOLON};
 use crate::token::{Token, TokenType};
+use std::panic::catch_unwind;
 
 pub struct Parser<'a> {
     l: &'a mut Lexer,
@@ -36,9 +38,7 @@ impl<'a> Parser<'a> {
 
     fn parse_program(&mut self) -> Program {
         // 创建一个新的 Program 实例
-        let mut program = Program {
-            statements: vec![],
-        };
+        let mut program = Program { statements: vec![] };
 
         while self.cur_token.tp != TokenType::EOF {
             let stmt = self.parse_statement();
@@ -53,16 +53,68 @@ impl<'a> Parser<'a> {
 
     fn parse_statement(&mut self) -> Option<Box<dyn Statement>> {
         match self.cur_token.tp {
-            TokenType::LET => self.parse_let_statement(),
+            LET => self.parse_let_statement(),
             _ => None, // 其他语句类型可以在这里添加
         }
     }
 
     fn parse_let_statement(&mut self) -> Option<Box<dyn Statement>> {
-        None
+        let mut stmt = Box::new(LetStatement {
+            token: self.cur_token.clone(),
+            name: Box::new(Identifier {
+                token: Token {
+                    tp: TokenType::ILLEGAL,
+                    literal: "".to_string(),
+                },
+                value: "".to_string(), // 初始值为空，稍后会被更新
+            }),
+            value: Box::new(Identifier {
+                token: Token{
+                    tp: TokenType::ILLEGAL,
+                    literal: "".to_string(),
+                },
+                value: "".to_string(),
+            }),
+        });
+
+        if !self.expect_peek(IDENT) {
+            return None;
+        }
+
+        stmt.name = Box::new(Identifier {
+            token: self.cur_token.clone(),
+            value: self.cur_token.literal.clone(),
+        });
+
+        if !self.expect_peek(ASSIGN) {
+            return None;
+        }
+
+        // TODO: 跳过对表达式的处理，直到遇到分号
+        while !self.cur_token_is(SEMICOLON) {
+            self.next_token();
+        }
+
+        Some(stmt)
+    }
+
+    fn cur_token_is(&self, tp: TokenType) -> bool {
+        self.cur_token.tp == tp
+    }
+
+    fn peek_token_is(&self, tp: TokenType) -> bool {
+        self.peek_token.tp == tp
+    }
+
+    fn expect_peek(&mut self, tp: TokenType) -> bool {
+        if self.peek_token_is(tp) {
+            self.next_token();
+            true
+        } else {
+            false
+        }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -81,28 +133,35 @@ let foobar = 838383;
         let mut p = Parser::new(&mut l);
         let program = p.parse_program();
 
-        assert_eq!(program.statements.len(), 0);
-        assert_ne!(program.statements.len(), 3);
+        assert_ne!(program.statements.len(), 0);
+        assert_eq!(program.statements.len(), 3);
 
-        let tests = vec![
-            ("x", 5),
-            ("y", 10),
-            ("foobar", 838383),
-        ];
+        let tests = vec![("x", 5), ("y", 10), ("foobar", 838383)];
 
         for (i, tt) in tests.iter().enumerate() {
-            let stmt = program.statements.get(i).unwrap();
-            test_let_statement(stmt, tt)
+            if let Some(stmt) = program.statements.get(i) {
+                // TODO:
+                println!(
+                    "### i:{:?} {:?} {:?} {:?}",
+                    i,
+                    stmt.statement_node(),
+                    stmt.token_literal(),
+                    tt
+                );
+
+                test_let_statement(stmt, tt)
+            } else {
+                assert!(false, "no statement at index {}", i);
+            }
         }
     }
 
-    fn test_let_statement(stmt : &Box<dyn Statement>, tt: &(&str, i32)) {
+    fn test_let_statement(stmt: &Box<dyn Statement>, tt: &(&str, i32)) {
         assert_eq!(stmt.token_literal(), "let");
         if let Some(let_stmt) = stmt.as_let_statement() {
             assert_eq!(let_stmt.name.value, tt.0);
         } else {
             panic!("stmt is not LetStatement");
         }
-
     }
 }
