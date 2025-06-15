@@ -1,7 +1,18 @@
-use crate::ast::{Expression, Identifier, LetStatement, Program, ReturnStatement, Statement};
+use crate::ast::{Expression, Identifier, LetStatement, Program, ReturnStatement, Statement, ExpressionStatement};
 use crate::lexer::Lexer;
 use crate::token::TokenType::{ASSIGN, IDENT, LET, SEMICOLON};
 use crate::token::{Token, TokenType};
+
+type PrefixParseFn = fn(& Parser) -> Box<dyn Expression>;
+type InfixParseFn = fn(Box<dyn Expression>) -> Box<dyn Expression>;
+
+const LOWEST: i32 = 0; // 最低优先级
+const EQUALS: i32 = 1; // ==
+const LESSGREATER: i32 = 2; // < or >
+const SUM: i32 = 3; // + or -
+const PRODUCT: i32 = 4; // * or /
+const PREFIX: i32 = 5; // -X or !X
+const CALL: i32 = 6; // myFunction(X)
 
 pub struct Parser<'a> {
     l: &'a mut Lexer,
@@ -10,6 +21,9 @@ pub struct Parser<'a> {
 
     cur_token: Token,
     peek_token: Token,
+
+    prefix_parse_fns: std::collections::HashMap<TokenType, PrefixParseFn>,
+    infix_parse_fns: std::collections::HashMap<TokenType, InfixParseFn>,
 }
 
 impl<'a> Parser<'a> {
@@ -19,12 +33,25 @@ impl<'a> Parser<'a> {
             errors: vec![],
             cur_token: Token::new(TokenType::ILLEGAL, ""),
             peek_token: Token::new(TokenType::ILLEGAL, ""),
+            prefix_parse_fns: Default::default(),
+            infix_parse_fns: Default::default(),
         };
+
+        p.register_prefix(IDENT, parse_identifier);
+
         // 读取两个词法单元，以设置 cur_token 和 peek_token
         p.next_token();
         p.next_token();
 
         p
+    }
+
+    fn register_prefix(&mut self, tp: TokenType, fn_: PrefixParseFn) {
+        self.prefix_parse_fns.insert(tp, fn_);
+    }
+
+    fn register_infix(&mut self, tp: TokenType, fn_: InfixParseFn) {
+        self.infix_parse_fns.insert(tp, fn_);
     }
 
     pub fn errors(&self) -> &Vec<String> {
@@ -63,7 +90,7 @@ impl<'a> Parser<'a> {
         match self.cur_token.tp {
             LET => self.parse_let_statement(),
             TokenType::RETURN => self.parse_return_statement(),
-            _ => None, // 其他语句类型可以在这里添加
+            _ => self.parse_expression_statement(), // 其他语句类型可以在这里添加
         }
     }
 
@@ -100,7 +127,7 @@ impl<'a> Parser<'a> {
 
         Some(stmt)
     }
-    
+
     fn parse_return_statement(&mut self) -> Option<Box<dyn Statement>> {
         let mut stmt = Box::new(ReturnStatement {
             token: self.cur_token.clone(),
@@ -109,15 +136,39 @@ impl<'a> Parser<'a> {
                 value: "".to_string(), // 初始值为空，稍后会被更新
             }),
         });
-        
+
         self.next_token();
-        
+
         // TODO: 跳过对表达式的处理，直到遇到分号
         while !self.cur_token_is(SEMICOLON) {
             self.next_token();
         }
-        
+
         Some(stmt)
+    }
+
+    fn parse_expression_statement(&mut self) -> Option<Box<dyn Statement>> {
+        let mut stmt = Box::new(ExpressionStatement {
+            token: self.cur_token.clone(),
+            expression: None,
+        });
+
+        stmt.expression = self.parse_expression(LOWEST);
+
+        // 如果下一个 token 是分号，则跳过它
+        if self.peek_token_is(SEMICOLON) {
+            self.next_token(); // 跳过分号
+        }
+
+        Some(stmt)
+    }
+
+    fn parse_expression(&mut self, _precedence: i32) -> Option<Box<dyn Expression>> {
+        let prefix  = self.prefix_parse_fns.get(&self.cur_token.tp);
+        match prefix {
+            Some(&fn_) => Some(fn_(self)),
+            None => None,
+        }
     }
 
     fn cur_token_is(&self, tp: TokenType) -> bool {
@@ -137,6 +188,13 @@ impl<'a> Parser<'a> {
             false
         }
     }
+}
+
+fn parse_identifier(parser: &Parser) -> Box<dyn Expression> {
+    Box::new(Identifier {
+        token: parser.cur_token.clone(),
+        value: parser.cur_token.literal.clone(),
+    })
 }
 
 #[cfg(test)]
@@ -217,6 +275,41 @@ return 838383;
             } else {
                 panic!("stmt is not ReturnStatement");
             }
+        }
+    }
+
+    #[test]
+    fn test_identifier_expression() {
+        let input = r#"
+        foobar;
+        "#;
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let mut program = p.parse_program();
+        check_parser_errors(&p);
+
+        assert_eq!(program.statements.len(), 1);
+
+        if let Some(stmt) = program.statements.get(0) {
+            match stmt.as_expression_statement() {
+                Some(expr_stmt) => {
+                    match &expr_stmt.expression {
+                        Some(expr) => {
+                            if let Some(ident) = expr.as_identifier() {
+                                assert_eq!(ident.value, "foobar");
+                                assert_eq!(ident.token_literal(), "foobar");
+                            } else {
+                                panic!("expression is not Identifier");
+                            }
+                        },
+                        None => panic!("expression is None"),
+                    }
+                },
+                None => panic!("statement is not ExpressionStatement"),
+            }
+        } else {
+            assert!(false, "no statement at index {}", 0);
         }
     }
 }

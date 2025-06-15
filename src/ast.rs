@@ -13,10 +13,18 @@ pub trait Statement: Node {
     fn as_return_statement(&self) -> Option<&ReturnStatement> {
         None
     }
+    
+    fn as_expression_statement(&self) -> Option<&ExpressionStatement> {
+        None
+    }
 }
 
-pub trait Expression: Node {
+pub trait Expression: Node + std::fmt::Debug {
     fn expression_node(&self);
+    
+    fn as_identifier(&self) -> Option<&Identifier> {
+        None
+    }
 }
 
 pub struct Program {
@@ -56,6 +64,7 @@ impl<'a> Statement for LetStatement {
     }
 }
 
+#[derive(Debug)]
 pub struct Identifier {
     pub token: Token,
     pub value: String,
@@ -69,8 +78,12 @@ impl Node for Identifier {
 
 impl Expression for Identifier {
     fn expression_node(&self) {}
+    fn as_identifier(&self) -> Option<&Identifier> {
+        Some(self)
+    }
 }
 
+#[derive(Debug)]
 pub struct ReturnStatement {
     pub token: Token,
     pub return_value: Box<dyn Expression>,
@@ -84,4 +97,22 @@ impl Node for ReturnStatement {
 
 impl Statement for ReturnStatement {
     fn statement_node(&self) {}
+}
+
+pub struct ExpressionStatement {
+    pub token: Token,
+    pub expression: Option<Box<dyn Expression>>,
+}
+
+impl Node for ExpressionStatement {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Statement for ExpressionStatement {
+    fn statement_node(&self) {}
+    fn as_expression_statement(&self) -> Option<&ExpressionStatement> {
+        Some(self)
+    }
 }
