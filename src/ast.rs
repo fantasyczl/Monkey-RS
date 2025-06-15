@@ -9,6 +9,10 @@ pub trait Statement: Node {
     fn as_let_statement(&self) -> Option<&LetStatement> {
         None
     }
+
+    fn as_return_statement(&self) -> Option<&ReturnStatement> {
+        None
+    }
 }
 
 pub trait Expression: Node {
@@ -20,6 +24,10 @@ pub struct Program {
 }
 
 impl Program {
+    pub fn new() -> Self {
+        Program { statements: vec![] }
+    }
+
     pub fn token_literal(&self) -> String {
         if self.statements.len() > 0 {
             self.statements[0].token_literal()
@@ -61,4 +69,19 @@ impl Node for Identifier {
 
 impl Expression for Identifier {
     fn expression_node(&self) {}
+}
+
+pub struct ReturnStatement {
+    pub token: Token,
+    pub return_value: Box<dyn Expression>,
+}
+
+impl Node for ReturnStatement {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Statement for ReturnStatement {
+    fn statement_node(&self) {}
 }

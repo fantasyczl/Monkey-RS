@@ -11,9 +11,16 @@ impl Token {
             literal: literal.to_string(),
         }
     }
+    
+    pub fn new_illegal() -> Token {
+        Token {
+            tp: TokenType::ILLEGAL,
+            literal: String::new(),
+        }
+    }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenType {
     ILLEGAL,
     EOF,
