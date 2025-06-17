@@ -371,4 +371,53 @@ return 838383;
             }
         }
     }
+
+    #[test]
+    fn test_parsing_prefix_expressions() {
+        struct TestCase {
+            input: &'static str,
+            operator: &'static str,
+            value: i64,
+        }
+
+        let tests = vec![
+            TestCase { input: "!5;", operator: "!", value: 5 },
+            TestCase { input: "-15;", operator: "-", value: 15 },
+        ];
+
+        for test in tests {
+            let mut l = Lexer::new(test.input);
+            let mut p = Parser::new(&mut l);
+            let program = p.parse_program();
+            check_parser_errors(&p);
+
+            assert_eq!(program.statements.len(), 1);
+
+            match program.statements.get(0) {
+                None => panic!("statement index 0 is None"),
+                Some(stmt) => {
+                    match stmt.as_expression_statement() {
+                        None => panic!("statement is not ExpressionStatement"),
+                        Some(expr_stmt) => {
+                            match &expr_stmt.expression {
+                                None => panic!("expression is None"),
+                                Some(expr) => {
+                                    if let Some(prefix_expr) = expr.as_prefix_expression() {
+                                        assert_eq!(prefix_expr.operator, test.operator);
+                                        test_integer_literal(&prefix_expr.right, test.value);
+                                    } else {
+                                        panic!("expression is not PrefixExpression");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn test_integer_literal(right: &Box<dyn Expression>, value: i64) {
+
+    }
 }

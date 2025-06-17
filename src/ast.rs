@@ -25,8 +25,12 @@ pub trait Expression: Node + std::fmt::Debug {
     fn as_identifier(&self) -> Option<&Identifier> {
         None
     }
-    
+
     fn as_integer_literal(&self) -> Option<&IntegerLiteral> {
+        None
+    }
+    
+    fn as_prefix_expression(&self) -> Option<&PrefixExpression> {
         None
     }
 }
@@ -136,6 +140,27 @@ impl Node for IntegerLiteral {
 impl Expression for IntegerLiteral {
     fn expression_node(&self) {}
     fn as_integer_literal(&self) -> Option<&IntegerLiteral> {
+        Some(self)
+    }
+}
+
+#[derive(Debug)]
+pub struct PrefixExpression {
+    pub token: Token,
+    pub operator: String,
+    pub right: Box<dyn Expression>,
+}
+
+impl Node for PrefixExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Expression for PrefixExpression {
+    fn expression_node(&self) {}
+    
+    fn as_prefix_expression(&self) -> Option<&PrefixExpression> {
         Some(self)
     }
 }
