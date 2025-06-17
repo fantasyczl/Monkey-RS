@@ -167,12 +167,22 @@ impl<'a> Parser<'a> {
 
         Some(stmt)
     }
+    
+    fn no_prefix_parse_fn_error(&mut self, tp: TokenType) {
+        let msg = format!("没有为 {:?} 注册前缀解析函数", tp);
+        self.add_error(msg);
+    }
 
     fn parse_expression(&mut self, _precedence: i32) -> Option<Box<dyn Expression>> {
         let prefix  = self.prefix_parse_fns.get(&self.cur_token.tp);
         match prefix {
             Some(&fn_) => fn_(self),
-            None => None,
+            None => {
+                // add error
+                self.no_prefix_parse_fn_error(self.cur_token.tp);
+                
+                None
+            },
         }
     }
 
