@@ -3,7 +3,7 @@ use crate::lexer::Lexer;
 use crate::token::TokenType::{ASSIGN, IDENT, INT, LET, SEMICOLON};
 use crate::token::{Token, TokenType};
 
-type PrefixParseFn = fn(& Parser) -> Box<dyn Expression>;
+type PrefixParseFn = fn(&mut Parser) -> Option<Box<dyn Expression>>;
 type InfixParseFn = fn(Box<dyn Expression>) -> Box<dyn Expression>;
 
 const LOWEST: i32 = 0; // 最低优先级
@@ -57,6 +57,10 @@ impl<'a> Parser<'a> {
 
     pub fn errors(&self) -> &Vec<String> {
         &self.errors
+    }
+
+    pub fn add_error(&mut self, msg: String) {
+        self.errors.push(msg);
     }
 
     pub fn peek_error(&mut self, t: TokenType) {
@@ -167,7 +171,7 @@ impl<'a> Parser<'a> {
     fn parse_expression(&mut self, _precedence: i32) -> Option<Box<dyn Expression>> {
         let prefix  = self.prefix_parse_fns.get(&self.cur_token.tp);
         match prefix {
-            Some(&fn_) => Some(fn_(self)),
+            Some(&fn_) => fn_(self),
             None => None,
         }
     }
@@ -191,20 +195,29 @@ impl<'a> Parser<'a> {
     }
 }
 
-fn parse_identifier(parser: &Parser) -> Box<dyn Expression> {
-    Box::new(Identifier {
+fn parse_identifier(parser: &mut Parser) -> Option<Box<dyn Expression>> {
+    Some(Box::new(Identifier {
         token: parser.cur_token.clone(),
         value: parser.cur_token.literal.clone(),
-    })
+    }))
 }
 
-fn parse_integer_literal(parser: &Parser) -> Box<dyn Expression> {
-    let value = parser.cur_token.literal.parse::<i64>().unwrap_or(0);
+fn parse_integer_literal(parser: &mut Parser) -> Option<Box<dyn Expression>> {
+    let result = parser.cur_token.literal.parse::<i64>();
 
-    Box::new(IntegerLiteral {
-        token: parser.cur_token.clone(),
-        value,
-    })
+    match result {
+        Ok(val) => {
+            let literal = Box::new(IntegerLiteral {
+                token: parser.cur_token.clone(),
+                value: val,
+            });
+            Some(literal)
+        },
+        Err(e) => {
+            parser.add_error(format!( "无法解析整数字面量: {}", e ));
+            None
+        }
+    }
 }
 
 #[cfg(test)]
