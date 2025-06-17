@@ -418,6 +418,12 @@ return 838383;
     }
 
     fn test_integer_literal(right: &Box<dyn Expression>, value: i64) {
-
+        match right.as_integer_literal() {
+            Some(int_lit) => {
+                assert_eq!(int_lit.value, value);
+                assert_eq!(int_lit.token_literal(), value.to_string());
+            },
+            None => panic!("right expression is not IntegerLiteral"),
+        }
     }
 }
