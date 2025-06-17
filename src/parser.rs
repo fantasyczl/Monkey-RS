@@ -1,6 +1,6 @@
-use crate::ast::{Expression, Identifier, LetStatement, Program, ReturnStatement, Statement, ExpressionStatement};
+use crate::ast::{Expression, Identifier, LetStatement, Program, ReturnStatement, Statement, ExpressionStatement, IntegerLiteral};
 use crate::lexer::Lexer;
-use crate::token::TokenType::{ASSIGN, IDENT, LET, SEMICOLON};
+use crate::token::TokenType::{ASSIGN, IDENT, INT, LET, SEMICOLON};
 use crate::token::{Token, TokenType};
 
 type PrefixParseFn = fn(& Parser) -> Box<dyn Expression>;
@@ -38,6 +38,7 @@ impl<'a> Parser<'a> {
         };
 
         p.register_prefix(IDENT, parse_identifier);
+        p.register_prefix(INT, parse_integer_literal);
 
         // 读取两个词法单元，以设置 cur_token 和 peek_token
         p.next_token();
@@ -129,7 +130,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_return_statement(&mut self) -> Option<Box<dyn Statement>> {
-        let mut stmt = Box::new(ReturnStatement {
+        let stmt = Box::new(ReturnStatement {
             token: self.cur_token.clone(),
             return_value: Box::new(Identifier {
                 token: Token::new_illegal(),
@@ -194,6 +195,15 @@ fn parse_identifier(parser: &Parser) -> Box<dyn Expression> {
     Box::new(Identifier {
         token: parser.cur_token.clone(),
         value: parser.cur_token.literal.clone(),
+    })
+}
+
+fn parse_integer_literal(parser: &Parser) -> Box<dyn Expression> {
+    let value = parser.cur_token.literal.parse::<i64>().unwrap_or(0);
+
+    Box::new(IntegerLiteral {
+        token: parser.cur_token.clone(),
+        value,
     })
 }
 
@@ -286,7 +296,7 @@ return 838383;
 
         let mut l = Lexer::new(input);
         let mut p = Parser::new(&mut l);
-        let mut program = p.parse_program();
+        let program = p.parse_program();
         check_parser_errors(&p);
 
         assert_eq!(program.statements.len(), 1);
@@ -310,6 +320,42 @@ return 838383;
             }
         } else {
             assert!(false, "no statement at index {}", 0);
+        }
+    }
+
+    #[test]
+    fn test_integer_literal_expression() {
+        let input = r#"
+        5;
+        "#;
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        assert_eq!(program.statements.len(), 1);
+
+        match program.statements.get(0) {
+            None => panic!("statement is not ExpressionStatement"),
+            Some(stmt) => {
+                match stmt.as_expression_statement() {
+                    None => panic!("statement is not ExpressionStatement"),
+                    Some(expr_stmt) => {
+                        match &expr_stmt.expression {
+                            None => panic!("expression is None"),
+                            Some(expr) => {
+                                if let Some(ident) = expr.as_integer_literal() {
+                                    assert_eq!(ident.value, 5);
+                                    assert_eq!(ident.token_literal(), "5");
+                                } else {
+                                    panic!("expression is not IdentifierLiteral");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

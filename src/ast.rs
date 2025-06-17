@@ -13,7 +13,7 @@ pub trait Statement: Node {
     fn as_return_statement(&self) -> Option<&ReturnStatement> {
         None
     }
-    
+
     fn as_expression_statement(&self) -> Option<&ExpressionStatement> {
         None
     }
@@ -21,8 +21,12 @@ pub trait Statement: Node {
 
 pub trait Expression: Node + std::fmt::Debug {
     fn expression_node(&self);
-    
+
     fn as_identifier(&self) -> Option<&Identifier> {
+        None
+    }
+    
+    fn as_integer_literal(&self) -> Option<&IntegerLiteral> {
         None
     }
 }
@@ -113,6 +117,25 @@ impl Node for ExpressionStatement {
 impl Statement for ExpressionStatement {
     fn statement_node(&self) {}
     fn as_expression_statement(&self) -> Option<&ExpressionStatement> {
+        Some(self)
+    }
+}
+
+#[derive(Debug)]
+pub struct IntegerLiteral{
+    pub token: Token,
+    pub value: i64,
+}
+
+impl Node for IntegerLiteral {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Expression for IntegerLiteral {
+    fn expression_node(&self) {}
+    fn as_integer_literal(&self) -> Option<&IntegerLiteral> {
         Some(self)
     }
 }
