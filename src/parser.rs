@@ -1,6 +1,6 @@
-use crate::ast::{Expression, Identifier, LetStatement, Program, ReturnStatement, Statement, ExpressionStatement, IntegerLiteral};
+use crate::ast::{Expression, Identifier, LetStatement, Program, ReturnStatement, Statement, ExpressionStatement, IntegerLiteral, PrefixExpression};
 use crate::lexer::Lexer;
-use crate::token::TokenType::{ASSIGN, IDENT, INT, LET, SEMICOLON};
+use crate::token::TokenType::{ASSIGN, BANG, IDENT, INT, LET, MINUS, SEMICOLON};
 use crate::token::{Token, TokenType};
 
 type PrefixParseFn = fn(&mut Parser) -> Option<Box<dyn Expression>>;
@@ -39,6 +39,8 @@ impl<'a> Parser<'a> {
 
         p.register_prefix(IDENT, parse_identifier);
         p.register_prefix(INT, parse_integer_literal);
+        p.register_prefix(BANG, parse_prefix_expression);
+        p.register_prefix(MINUS, parse_prefix_expression);
 
         // 读取两个词法单元，以设置 cur_token 和 peek_token
         p.next_token();
@@ -167,7 +169,7 @@ impl<'a> Parser<'a> {
 
         Some(stmt)
     }
-    
+
     fn no_prefix_parse_fn_error(&mut self, tp: TokenType) {
         let msg = format!("没有为 {:?} 注册前缀解析函数", tp);
         self.add_error(msg);
@@ -180,7 +182,7 @@ impl<'a> Parser<'a> {
             None => {
                 // add error
                 self.no_prefix_parse_fn_error(self.cur_token.tp);
-                
+
                 None
             },
         }
@@ -228,6 +230,25 @@ fn parse_integer_literal(parser: &mut Parser) -> Option<Box<dyn Expression>> {
             None
         }
     }
+}
+
+fn parse_prefix_expression(parser: &mut Parser) -> Option<Box<dyn Expression>> {
+    // 这里可以实现前缀表达式的解析逻辑
+    // 例如处理 !5 或 -15 等
+
+    let expression = Box::new(PrefixExpression {
+        token: parser.cur_token.clone(),
+        operator: parser.cur_token.literal.clone(),
+        right: None,
+    });
+
+    parser.next_token();
+
+    parser.parse_expression(PREFIX).map(|right| {
+        let mut prefix_expr = expression;
+        prefix_expr.right = Some(right);
+        prefix_expr as Box<dyn Expression>
+    })
 }
 
 #[cfg(test)]
@@ -414,7 +435,12 @@ return 838383;
                                 Some(expr) => {
                                     if let Some(prefix_expr) = expr.as_prefix_expression() {
                                         assert_eq!(prefix_expr.operator, test.operator);
-                                        test_integer_literal(&prefix_expr.right, test.value);
+                                        match &prefix_expr.right {
+                                            None => panic!("right expression is None"),
+                                            Some(right) => {
+                                                test_integer_literal(&right, test.value);
+                                            }
+                                        }
                                     } else {
                                         panic!("expression is not PrefixExpression");
                                     }

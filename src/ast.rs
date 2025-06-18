@@ -148,7 +148,7 @@ impl Expression for IntegerLiteral {
 pub struct PrefixExpression {
     pub token: Token,
     pub operator: String,
-    pub right: Box<dyn Expression>,
+    pub right: Option<Box<dyn Expression>>,
 }
 
 impl Node for PrefixExpression {
