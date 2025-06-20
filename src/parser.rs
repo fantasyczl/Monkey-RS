@@ -3,7 +3,6 @@ use crate::ast::{
     Program, ReturnStatement, Statement, InfixExpression
 };
 use crate::lexer::Lexer;
-use crate::token::TokenType::{ASSIGN, BANG, IDENT, INT, MINUS, SEMICOLON};
 use crate::token::{Token, TokenType};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
@@ -56,10 +55,10 @@ impl<'a> Parser<'a> {
             infix_parse_fns: Default::default(),
         };
 
-        p.register_prefix(IDENT, parse_identifier);
-        p.register_prefix(INT, parse_integer_literal);
-        p.register_prefix(BANG, parse_prefix_expression);
-        p.register_prefix(MINUS, parse_prefix_expression);
+        p.register_prefix(TokenType::IDENT, parse_identifier);
+        p.register_prefix(TokenType::INT, parse_integer_literal);
+        p.register_prefix(TokenType::BANG, parse_prefix_expression);
+        p.register_prefix(TokenType::MINUS, parse_prefix_expression);
 
         // 注册中缀解析函数
         p.register_infix(TokenType::PLUS, parse_infix_expression);
@@ -143,7 +142,7 @@ impl<'a> Parser<'a> {
             }),
         });
 
-        if !self.expect_peek(IDENT) {
+        if !self.expect_peek(TokenType::IDENT) {
             return None;
         }
 
@@ -152,12 +151,12 @@ impl<'a> Parser<'a> {
             value: self.cur_token.literal.clone(),
         });
 
-        if !self.expect_peek(ASSIGN) {
+        if !self.expect_peek(TokenType::ASSIGN) {
             return None;
         }
 
         // TODO: 跳过对表达式的处理，直到遇到分号
-        while !self.cur_token_is(SEMICOLON) {
+        while !self.cur_token_is(TokenType::SEMICOLON) {
             self.next_token();
         }
 
@@ -176,7 +175,7 @@ impl<'a> Parser<'a> {
         self.next_token();
 
         // TODO: 跳过对表达式的处理，直到遇到分号
-        while !self.cur_token_is(SEMICOLON) {
+        while !self.cur_token_is(TokenType::SEMICOLON) {
             self.next_token();
         }
 
@@ -192,7 +191,7 @@ impl<'a> Parser<'a> {
         stmt.expression = self.parse_expression(LOWEST);
 
         // 如果下一个 token 是分号，则跳过它
-        if self.peek_token_is(SEMICOLON) {
+        if self.peek_token_is(TokenType::SEMICOLON) {
             self.next_token(); // 跳过分号
         }
 
