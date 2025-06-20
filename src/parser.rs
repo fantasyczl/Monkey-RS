@@ -1,10 +1,15 @@
-use crate::ast::{Expression, Identifier, LetStatement, Program, ReturnStatement, Statement, ExpressionStatement, IntegerLiteral, PrefixExpression};
+use crate::ast::{
+    Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, PrefixExpression,
+    Program, ReturnStatement, Statement, InfixExpression
+};
 use crate::lexer::Lexer;
-use crate::token::TokenType::{ASSIGN, BANG, IDENT, INT, LET, MINUS, SEMICOLON};
+use crate::token::TokenType::{ASSIGN, BANG, IDENT, INT, MINUS, SEMICOLON};
 use crate::token::{Token, TokenType};
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
 type PrefixParseFn = fn(&mut Parser) -> Option<Box<dyn Expression>>;
-type InfixParseFn = fn(Box<dyn Expression>) -> Box<dyn Expression>;
+type InfixParseFn = fn(Box<dyn Expression>, &mut Parser) -> Box<dyn Expression>;
 
 const LOWEST: i32 = 0; // 最低优先级
 const EQUALS: i32 = 1; // ==
@@ -14,6 +19,20 @@ const PRODUCT: i32 = 4; // * or /
 const PREFIX: i32 = 5; // -X or !X
 const CALL: i32 = 6; // myFunction(X)
 
+// 定义操作符的优先级
+static PRECEDENCES: Lazy<HashMap<TokenType, i32>> = Lazy::new(|| {
+    HashMap::from([
+        (TokenType::EQ, EQUALS),
+        (TokenType::NotEq, EQUALS),
+        (TokenType::LT, LESSGREATER),
+        (TokenType::GT, LESSGREATER),
+        (TokenType::PLUS, SUM),
+        (TokenType::MINUS, SUM),
+        (TokenType::SLASH, PRODUCT),
+        (TokenType::ASTERISK, PRODUCT),
+    ])
+});
+
 pub struct Parser<'a> {
     l: &'a mut Lexer,
 
@@ -22,8 +41,8 @@ pub struct Parser<'a> {
     cur_token: Token,
     peek_token: Token,
 
-    prefix_parse_fns: std::collections::HashMap<TokenType, PrefixParseFn>,
-    infix_parse_fns: std::collections::HashMap<TokenType, InfixParseFn>,
+    prefix_parse_fns: HashMap<TokenType, PrefixParseFn>,
+    infix_parse_fns: HashMap<TokenType, InfixParseFn>,
 }
 
 impl<'a> Parser<'a> {
@@ -41,6 +60,16 @@ impl<'a> Parser<'a> {
         p.register_prefix(INT, parse_integer_literal);
         p.register_prefix(BANG, parse_prefix_expression);
         p.register_prefix(MINUS, parse_prefix_expression);
+
+        // 注册中缀解析函数
+        p.register_infix(TokenType::PLUS, parse_infix_expression);
+        p.register_infix(TokenType::MINUS, parse_infix_expression);
+        p.register_infix(TokenType::SLASH, parse_infix_expression);
+        p.register_infix(TokenType::ASTERISK, parse_infix_expression);
+        p.register_infix(TokenType::EQ, parse_infix_expression);
+        p.register_infix(TokenType::NotEq, parse_infix_expression);
+        p.register_infix(TokenType::LT, parse_infix_expression);
+        p.register_infix(TokenType::GT, parse_infix_expression);
 
         // 读取两个词法单元，以设置 cur_token 和 peek_token
         p.next_token();
@@ -95,7 +124,7 @@ impl<'a> Parser<'a> {
 
     fn parse_statement(&mut self) -> Option<Box<dyn Statement>> {
         match self.cur_token.tp {
-            LET => self.parse_let_statement(),
+            TokenType::LET => self.parse_let_statement(),
             TokenType::RETURN => self.parse_return_statement(),
             _ => self.parse_expression_statement(), // 其他语句类型可以在这里添加
         }
@@ -176,15 +205,39 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self, _precedence: i32) -> Option<Box<dyn Expression>> {
-        let prefix  = self.prefix_parse_fns.get(&self.cur_token.tp);
+        let prefix = self.prefix_parse_fns.get(&self.cur_token.tp).copied();
         match prefix {
-            Some(&fn_) => fn_(self),
+            Some(fn_) => {
+                let left_exp = fn_(self);
+                while !self.peek_token_is(TokenType::SEMICOLON) && _precedence < self.peek_precedence() {
+                    let infix = self.infix_parse_fns.get(&self.peek_token.tp).copied();
+                    if infix.is_none() {
+                        return left_exp; // 如果没有中缀解析函数，直接返回左表达式
+                    }
+
+                    self.next_token(); // 移动到下一个 token
+
+                    return if let Some(infix_fn) = infix {
+                        // 调用中缀解析函数
+                        if let Some(left) = left_exp {
+                            Some(infix_fn(left, self))
+                        } else {
+                            None // 如果左表达式为空，返回 None
+                        }
+                    } else {
+                        // 如果没有中缀解析函数，直接返回左表达式
+                        left_exp
+                    }
+                }
+
+                left_exp
+            },
             None => {
                 // add error
                 self.no_prefix_parse_fn_error(self.cur_token.tp);
 
                 None
-            },
+            }
         }
     }
 
@@ -205,6 +258,20 @@ impl<'a> Parser<'a> {
             false
         }
     }
+
+    fn peek_precedence(&self) -> i32 {
+        PRECEDENCES
+            .get(&self.peek_token.tp)
+            .cloned()
+            .unwrap_or(LOWEST)
+    }
+
+    fn cur_precedence(&self) -> i32 {
+        PRECEDENCES
+            .get(&self.cur_token.tp)
+            .cloned()
+            .unwrap_or(LOWEST)
+    }
 }
 
 fn parse_identifier(parser: &mut Parser) -> Option<Box<dyn Expression>> {
@@ -224,9 +291,9 @@ fn parse_integer_literal(parser: &mut Parser) -> Option<Box<dyn Expression>> {
                 value: val,
             });
             Some(literal)
-        },
+        }
         Err(e) => {
-            parser.add_error(format!( "无法解析整数字面量: {}", e ));
+            parser.add_error(format!("无法解析整数字面量: {}", e));
             None
         }
     }
@@ -249,6 +316,27 @@ fn parse_prefix_expression(parser: &mut Parser) -> Option<Box<dyn Expression>> {
         prefix_expr.right = Some(right);
         prefix_expr as Box<dyn Expression>
     })
+}
+
+fn parse_infix_expression(left: Box<dyn Expression>, parser: &mut Parser) -> Box<dyn Expression> {
+    let mut expression = Box::new(InfixExpression {
+        token: parser.cur_token.clone(),
+        left,
+        operator: parser.cur_token.literal.clone(),
+        right: Box::new(Identifier {
+            token: Token::new_illegal(),
+            value: "".to_string(), // 初始值为空，稍后会被更新
+        }),
+    });
+
+    let precedence = parser.cur_precedence();
+    parser.next_token();
+
+    if let Some(right) = parser.parse_expression(precedence) {
+        expression.right = right;
+    }
+
+    expression
 }
 
 #[cfg(test)]
@@ -347,18 +435,16 @@ return 838383;
 
         if let Some(stmt) = program.statements.get(0) {
             match stmt.as_expression_statement() {
-                Some(expr_stmt) => {
-                    match &expr_stmt.expression {
-                        Some(expr) => {
-                            if let Some(ident) = expr.as_identifier() {
-                                assert_eq!(ident.value, "foobar");
-                                assert_eq!(ident.token_literal(), "foobar");
-                            } else {
-                                panic!("expression is not Identifier");
-                            }
-                        },
-                        None => panic!("expression is None"),
+                Some(expr_stmt) => match &expr_stmt.expression {
+                    Some(expr) => {
+                        if let Some(ident) = expr.as_identifier() {
+                            assert_eq!(ident.value, "foobar");
+                            assert_eq!(ident.token_literal(), "foobar");
+                        } else {
+                            panic!("expression is not Identifier");
+                        }
                     }
+                    None => panic!("expression is None"),
                 },
                 None => panic!("statement is not ExpressionStatement"),
             }
@@ -382,24 +468,20 @@ return 838383;
 
         match program.statements.get(0) {
             None => panic!("statement is not ExpressionStatement"),
-            Some(stmt) => {
-                match stmt.as_expression_statement() {
-                    None => panic!("statement is not ExpressionStatement"),
-                    Some(expr_stmt) => {
-                        match &expr_stmt.expression {
-                            None => panic!("expression is None"),
-                            Some(expr) => {
-                                if let Some(ident) = expr.as_integer_literal() {
-                                    assert_eq!(ident.value, 5);
-                                    assert_eq!(ident.token_literal(), "5");
-                                } else {
-                                    panic!("expression is not IdentifierLiteral");
-                                }
-                            }
+            Some(stmt) => match stmt.as_expression_statement() {
+                None => panic!("statement is not ExpressionStatement"),
+                Some(expr_stmt) => match &expr_stmt.expression {
+                    None => panic!("expression is None"),
+                    Some(expr) => {
+                        if let Some(ident) = expr.as_integer_literal() {
+                            assert_eq!(ident.value, 5);
+                            assert_eq!(ident.token_literal(), "5");
+                        } else {
+                            panic!("expression is not IdentifierLiteral");
                         }
                     }
-                }
-            }
+                },
+            },
         }
     }
 
@@ -412,8 +494,16 @@ return 838383;
         }
 
         let tests = vec![
-            TestCase { input: "!5;", operator: "!", value: 5 },
-            TestCase { input: "-15;", operator: "-", value: 15 },
+            TestCase {
+                input: "!5;",
+                operator: "!",
+                value: 5,
+            },
+            TestCase {
+                input: "-15;",
+                operator: "-",
+                value: 15,
+            },
         ];
 
         for test in tests {
@@ -426,29 +516,25 @@ return 838383;
 
             match program.statements.get(0) {
                 None => panic!("statement index 0 is None"),
-                Some(stmt) => {
-                    match stmt.as_expression_statement() {
-                        None => panic!("statement is not ExpressionStatement"),
-                        Some(expr_stmt) => {
-                            match &expr_stmt.expression {
-                                None => panic!("expression is None"),
-                                Some(expr) => {
-                                    if let Some(prefix_expr) = expr.as_prefix_expression() {
-                                        assert_eq!(prefix_expr.operator, test.operator);
-                                        match &prefix_expr.right {
-                                            None => panic!("right expression is None"),
-                                            Some(right) => {
-                                                test_integer_literal(&right, test.value);
-                                            }
-                                        }
-                                    } else {
-                                        panic!("expression is not PrefixExpression");
+                Some(stmt) => match stmt.as_expression_statement() {
+                    None => panic!("statement is not ExpressionStatement"),
+                    Some(expr_stmt) => match &expr_stmt.expression {
+                        None => panic!("expression is None"),
+                        Some(expr) => {
+                            if let Some(prefix_expr) = expr.as_prefix_expression() {
+                                assert_eq!(prefix_expr.operator, test.operator);
+                                match &prefix_expr.right {
+                                    None => panic!("right expression is None"),
+                                    Some(right) => {
+                                        test_integer_literal(&right, test.value);
                                     }
                                 }
+                            } else {
+                                panic!("expression is not PrefixExpression");
                             }
                         }
-                    }
-                }
+                    },
+                },
             }
         }
     }
@@ -458,8 +544,97 @@ return 838383;
             Some(int_lit) => {
                 assert_eq!(int_lit.value, value);
                 assert_eq!(int_lit.token_literal(), value.to_string());
-            },
+            }
             None => panic!("right expression is not IntegerLiteral"),
+        }
+    }
+
+    #[test]
+    fn test_parsing_infix_expressions() {
+        struct TestCase {
+            input: &'static str,
+            left_value: i64,
+            operator: &'static str,
+            right_value: i64,
+        }
+
+        let tests = vec![
+            TestCase {
+                input: "5 + 6;",
+                left_value: 5,
+                operator: "+",
+                right_value: 6,
+            },
+            TestCase {
+                input: "5 - 6;",
+                left_value: 5,
+                operator: "-",
+                right_value: 6,
+            },
+            TestCase {
+                input: "5 * 6;",
+                left_value: 5,
+                operator: "*",
+                right_value: 6,
+            },
+            TestCase {
+                input: "5 / 6;",
+                left_value: 5,
+                operator: "/",
+                right_value: 6,
+            },
+            TestCase {
+                input: "5 > 6;",
+                left_value: 5,
+                operator: ">",
+                right_value: 6,
+            },
+            TestCase {
+                input: "5 < 6;",
+                left_value: 5,
+                operator: "<",
+                right_value: 6,
+            },
+            TestCase {
+                input: "5 == 6;",
+                left_value: 5,
+                operator: "==",
+                right_value: 6,
+            },
+            TestCase {
+                input: "5 != 6;",
+                left_value: 5,
+                operator: "!=",
+                right_value: 6,
+            },
+        ];
+
+        for test in tests {
+            let mut l = Lexer::new(test.input);
+            let mut p = Parser::new(&mut l);
+            let program = p.parse_program();
+            check_parser_errors(&p);
+
+            assert_eq!(program.statements.len(), 1);
+
+            match program.statements.get(0) {
+                None => panic!("statement index 0 is None"),
+                Some(stmt) => match stmt.as_expression_statement() {
+                    None => panic!("statement is not ExpressionStatement"),
+                    Some(expr_stmt) => match &expr_stmt.expression {
+                        None => panic!("expression is None"),
+                        Some(expr) => {
+                            if let Some(infix_expr) = expr.as_infix_expression() {
+                                test_integer_literal(&infix_expr.left, test.left_value);
+                                assert_eq!(infix_expr.operator, test.operator);
+                                test_integer_literal(&infix_expr.right, test.right_value);
+                            } else {
+                                panic!("expression is not InfixExpression");
+                            }
+                        }
+                    },
+                },
+            }
         }
     }
 }

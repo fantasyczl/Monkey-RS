@@ -1,4 +1,5 @@
 use crate::token::Token;
+use std::fmt;
 
 pub trait Node {
     fn token_literal(&self) -> String;
@@ -31,6 +32,10 @@ pub trait Expression: Node + std::fmt::Debug {
     }
     
     fn as_prefix_expression(&self) -> Option<&PrefixExpression> {
+        None
+    }
+    
+    fn as_infix_expression(&self) -> Option<&InfixExpression> {
         None
     }
 }
@@ -161,6 +166,36 @@ impl Expression for PrefixExpression {
     fn expression_node(&self) {}
     
     fn as_prefix_expression(&self) -> Option<&PrefixExpression> {
+        Some(self)
+    }
+}
+
+#[derive(Debug)]
+pub struct InfixExpression {
+    pub token: Token,
+    pub left: Box<dyn Expression>,
+    pub operator: String,
+    pub right: Box<dyn Expression>,
+}
+
+impl fmt::Display for InfixExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO
+        // write!(f, "({} {} {})", self.left, self.operator, self.right)
+        write!(f, "($left {} $right)", self.operator)
+    }
+}
+
+impl Node for InfixExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Expression for InfixExpression {
+    fn expression_node(&self) {}
+    
+    fn as_infix_expression(&self) -> Option<&InfixExpression> {
         Some(self)
     }
 }
