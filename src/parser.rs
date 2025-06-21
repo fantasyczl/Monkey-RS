@@ -207,25 +207,20 @@ impl<'a> Parser<'a> {
         let prefix = self.prefix_parse_fns.get(&self.cur_token.tp).copied();
         match prefix {
             Some(fn_) => {
-                let left_exp = fn_(self);
+                let mut left_exp = fn_(self);
                 while !self.peek_token_is(TokenType::SEMICOLON) && _precedence < self.peek_precedence() {
                     let infix = self.infix_parse_fns.get(&self.peek_token.tp).copied();
                     if infix.is_none() {
-                        return left_exp; // 如果没有中缀解析函数，直接返回左表达式
+                        break; // 如果没有中缀解析函数，直接返回左表达式
                     }
 
                     self.next_token(); // 移动到下一个 token
 
-                    return if let Some(infix_fn) = infix {
+                    if let Some(infix_fn) = infix {
                         // 调用中缀解析函数
                         if let Some(left) = left_exp {
-                            Some(infix_fn(left, self))
-                        } else {
-                            None // 如果左表达式为空，返回 None
+                            left_exp = Some(infix_fn(left, self))
                         }
-                    } else {
-                        // 如果没有中缀解析函数，直接返回左表达式
-                        left_exp
                     }
                 }
 
@@ -653,7 +648,7 @@ return 838383;
             TestCase {input: "a*b/c", expected: "((a * b) / c)"},
             TestCase {input: "a+b/c", expected: "(a + (b / c))"},
             TestCase {input: "a+b*c+d/e-f", expected: "(((a + (b * c)) + (d / e)) - f)"},
-            TestCase {input: "3+4; -5 *5", expected: "(3+4)((-5) * 5)"},
+            TestCase {input: "3+4; -5 *5", expected: "(3 + 4)((-5) * 5)"},
             TestCase {input: "5 > 4 == 3 < 4", expected: "((5 > 4) == (3 < 4))"},
             TestCase {input: "5 < 4 != 3 > 4", expected: "((5 < 4) != (3 > 4))"},
             TestCase {input: "3+4*5 == 3 * 1 + 4 * 5", expected: "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))"},

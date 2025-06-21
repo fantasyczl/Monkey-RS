@@ -175,7 +175,7 @@ impl Statement for ExpressionStatement {
 impl fmt::Display for ExpressionStatement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(expr) = &self.expression {
-            write!(f, "{}", expr.token_literal())
+            write!(f, "{}", expr.to_string())
         } else {
             write!(f, "")
         }
@@ -231,7 +231,7 @@ impl Expression for PrefixExpression {
 impl fmt::Display for PrefixExpression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(right) = &self.right {
-            write!(f, "({}{})", self.operator, right.token_literal())
+            write!(f, "({}{})", self.operator, right.to_string())
         } else {
             write!(f, "({}{})", self.operator, "")
         }
@@ -248,7 +248,7 @@ pub struct InfixExpression {
 
 impl fmt::Display for InfixExpression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({} {} {})", self.left, self.operator, self.right)
+        write!(f, "({} {} {})", self.left.to_string(), self.operator, self.right.to_string())
     }
 }
 
@@ -270,7 +270,6 @@ impl Expression for InfixExpression {
 mod tests {
     use super::*;
     use crate::token::TokenType::{IDENT, INT, LET, RETURN};
-    use std::process::id;
 
     #[test]
     fn test_string() {
