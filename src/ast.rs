@@ -5,7 +5,7 @@ pub trait Node {
     fn token_literal(&self) -> String;
 }
 
-pub trait Statement: Node {
+pub trait Statement: Node + fmt::Display {
     fn statement_node(&self);
     fn as_let_statement(&self) -> Option<&LetStatement> {
         None
@@ -20,7 +20,7 @@ pub trait Statement: Node {
     }
 }
 
-pub trait Expression: Node + std::fmt::Debug {
+pub trait Expression: Node + fmt::Debug + fmt::Display {
     fn expression_node(&self);
 
     fn as_identifier(&self) -> Option<&Identifier> {
@@ -30,11 +30,11 @@ pub trait Expression: Node + std::fmt::Debug {
     fn as_integer_literal(&self) -> Option<&IntegerLiteral> {
         None
     }
-    
+
     fn as_prefix_expression(&self) -> Option<&PrefixExpression> {
         None
     }
-    
+
     fn as_infix_expression(&self) -> Option<&InfixExpression> {
         None
     }
@@ -58,6 +58,16 @@ impl Program {
     }
 }
 
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut out = String::new();
+        for statement in &self.statements {
+            out.push_str(&statement.to_string());
+        }
+        write!(f, "{}", out)
+    }
+}
+
 pub struct LetStatement {
     pub token: Token,
     pub name: Box<Identifier>,
@@ -74,6 +84,18 @@ impl<'a> Statement for LetStatement {
     fn statement_node(&self) {}
     fn as_let_statement(&self) -> Option<&LetStatement> {
         Some(self)
+    }
+}
+
+impl fmt::Display for LetStatement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} {} = {};",
+            self.token_literal(),
+            self.name.value,
+            self.value.token_literal()
+        )
     }
 }
 
@@ -96,6 +118,12 @@ impl Expression for Identifier {
     }
 }
 
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
 #[derive(Debug)]
 pub struct ReturnStatement {
     pub token: Token,
@@ -110,6 +138,17 @@ impl Node for ReturnStatement {
 
 impl Statement for ReturnStatement {
     fn statement_node(&self) {}
+}
+
+impl fmt::Display for ReturnStatement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} {};",
+            self.token_literal(),
+            self.return_value.token_literal()
+        )
+    }
 }
 
 pub struct ExpressionStatement {
@@ -130,8 +169,18 @@ impl Statement for ExpressionStatement {
     }
 }
 
+impl fmt::Display for ExpressionStatement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(expr) = &self.expression {
+            write!(f, "{}", expr.token_literal())
+        } else {
+            write!(f, "")
+        }
+    }
+}
+
 #[derive(Debug)]
-pub struct IntegerLiteral{
+pub struct IntegerLiteral {
     pub token: Token,
     pub value: i64,
 }
@@ -146,6 +195,12 @@ impl Expression for IntegerLiteral {
     fn expression_node(&self) {}
     fn as_integer_literal(&self) -> Option<&IntegerLiteral> {
         Some(self)
+    }
+}
+
+impl fmt::Display for IntegerLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value)
     }
 }
 
@@ -164,9 +219,19 @@ impl Node for PrefixExpression {
 
 impl Expression for PrefixExpression {
     fn expression_node(&self) {}
-    
+
     fn as_prefix_expression(&self) -> Option<&PrefixExpression> {
         Some(self)
+    }
+}
+
+impl fmt::Display for PrefixExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(right) = &self.right {
+            write!(f, "({}{})", self.operator, right.token_literal())
+        } else {
+            write!(f, "({}{})", self.operator, "")
+        }
     }
 }
 
@@ -194,8 +259,58 @@ impl Node for InfixExpression {
 
 impl Expression for InfixExpression {
     fn expression_node(&self) {}
-    
+
     fn as_infix_expression(&self) -> Option<&InfixExpression> {
         Some(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::token::TokenType::{IDENT, INT, LET, RETURN};
+    use std::process::id;
+
+    #[test]
+    fn test_string() {
+        let program = Program {
+            statements: vec![
+                Box::new(LetStatement {
+                    token: Token {
+                        tp: LET,
+                        literal: "let".to_string(),
+                    },
+                    name: Box::new(Identifier {
+                        token: Token {
+                            tp: IDENT,
+                            literal: "myVar".to_string(),
+                        },
+                        value: "myVar".to_string(),
+                    }),
+                    value: Box::new(IntegerLiteral {
+                        token: Token {
+                            tp: INT,
+                            literal: "5".to_string(),
+                        },
+                        value: 5,
+                    }),
+                }),
+                Box::new(ReturnStatement {
+                    token: Token {
+                        tp: RETURN,
+                        literal: "return".to_string(),
+                    },
+                    return_value: Box::new(IntegerLiteral {
+                        token: Token {
+                            tp: INT,
+                            literal: "10".to_string(),
+                        },
+                        value: 10,
+                    }),
+                }),
+            ],
+        };
+        
+        assert_eq!(program.to_string(), "let myVar = 5;return 10;");
     }
 }

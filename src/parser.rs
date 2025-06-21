@@ -636,4 +636,49 @@ return 838383;
             }
         }
     }
+
+    #[test]
+    fn test_operator_precedence_parsing() {
+        struct TestCase {
+            input: &'static str,
+            expected: &'static str,
+        }
+
+        let tests = vec![
+            TestCase {input: "-a * b", expected: "((-a) * b)"},
+            TestCase {input: "!-a", expected: "(!(-a))"},
+            TestCase {input: "a+b+c", expected: "((a + b) + c)"},
+            TestCase {input: "a+b-c", expected: "((a + b) - c)"},
+            TestCase {input: "a*b*c", expected: "((a * b) * c)"},
+            TestCase {input: "a*b/c", expected: "((a * b) / c)"},
+            TestCase {input: "a+b/c", expected: "(a + (b / c))"},
+            TestCase {input: "a+b*c+d/e-f", expected: "(((a + (b * c)) + (d / e)) - f)"},
+            TestCase {input: "3+4; -5 *5", expected: "(3+4)((-5) * 5)"},
+            TestCase {input: "5 > 4 == 3 < 4", expected: "((5 > 4) == (3 < 4))"},
+            TestCase {input: "5 < 4 != 3 > 4", expected: "((5 < 4) != (3 > 4))"},
+            TestCase {input: "3+4*5 == 3 * 1 + 4 * 5", expected: "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))"},
+            TestCase {
+                input: "5 + 6 * 7 - 8 / 4;",
+                expected: "((5 + (6 * 7)) - (8 / 4))",
+            },
+            TestCase {
+                input: "3 + 4 * 5 - 6 / 2;",
+                expected: "((3 + (4 * 5)) - (6 / 2))",
+            },
+            TestCase {
+                input: "1 + 2 * 3 + 4;",
+                expected: "((1 + (2 * 3)) + 4)",
+            },
+        ];
+
+        for test in tests {
+            let mut l = Lexer::new(test.input);
+            let mut p = Parser::new(&mut l);
+            let program = p.parse_program();
+            check_parser_errors(&p);
+            
+            let actual = program.to_string();
+            assert_eq!(actual, test.expected, "input: {}", test.input);
+        }
+    }
 }
