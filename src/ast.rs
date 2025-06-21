@@ -138,6 +138,9 @@ impl Node for ReturnStatement {
 
 impl Statement for ReturnStatement {
     fn statement_node(&self) {}
+    fn as_return_statement(&self) -> Option<&ReturnStatement> {
+        Some(self)
+    }
 }
 
 impl fmt::Display for ReturnStatement {
@@ -245,9 +248,7 @@ pub struct InfixExpression {
 
 impl fmt::Display for InfixExpression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // TODO
-        // write!(f, "({} {} {})", self.left, self.operator, self.right)
-        write!(f, "($left {} $right)", self.operator)
+        write!(f, "({} {} {})", self.left, self.operator, self.right)
     }
 }
 
@@ -310,7 +311,7 @@ mod tests {
                 }),
             ],
         };
-        
+
         assert_eq!(program.to_string(), "let myVar = 5;return 10;");
     }
 }

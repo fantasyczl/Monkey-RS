@@ -676,7 +676,7 @@ return 838383;
             let mut p = Parser::new(&mut l);
             let program = p.parse_program();
             check_parser_errors(&p);
-            
+
             let actual = program.to_string();
             assert_eq!(actual, test.expected, "input: {}", test.input);
         }
