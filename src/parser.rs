@@ -210,16 +210,16 @@ impl<'a> Parser<'a> {
                 let mut left_exp = fn_(self);
                 while !self.peek_token_is(TokenType::SEMICOLON) && _precedence < self.peek_precedence() {
                     let infix = self.infix_parse_fns.get(&self.peek_token.tp).copied();
-                    if infix.is_none() {
-                        break; // 如果没有中缀解析函数，直接返回左表达式
-                    }
-
-                    self.next_token(); // 移动到下一个 token
-
-                    if let Some(infix_fn) = infix {
-                        // 调用中缀解析函数
-                        if let Some(left) = left_exp {
-                            left_exp = Some(infix_fn(left, self))
+                    match infix {
+                        None => {
+                            break; // 如果没有中缀解析函数，直接返回左表达式
+                        }
+                        Some(infix_fn) => {
+                            self.next_token(); // 移动到下一个 token
+                            // 调用中缀解析函数
+                            if let Some(left) = left_exp {
+                                left_exp = Some(infix_fn(left, self))
+                            }
                         }
                     }
                 }
