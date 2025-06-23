@@ -714,6 +714,10 @@ return 838383;
                 input: "1 + 2 * 3 + 4;",
                 expected: "((1 + (2 * 3)) + 4)",
             },
+            TestCase{input: "true", expected: "true"},
+            TestCase{input: "false", expected: "false"},
+            TestCase{input: "3 > 5 == false", expected: "((3 > 5) == false)"},
+            TestCase{input: "3 < 5 == false", expected: "((3 < 5) == false)"},
         ];
 
         for test in tests {
