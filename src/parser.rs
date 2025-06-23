@@ -497,19 +497,29 @@ return 838383;
         struct TestCase {
             input: &'static str,
             operator: &'static str,
-            value: i64,
+            value: Box<dyn Any>,
         }
 
         let tests = vec![
             TestCase {
                 input: "!5;",
                 operator: "!",
-                value: 5,
+                value: Box::new(5),
             },
             TestCase {
                 input: "-15;",
                 operator: "-",
-                value: 15,
+                value: Box::new(15),
+            },
+            TestCase {
+                input: "!true;",
+                operator: "!",
+                value: Box::new(true),
+            },
+            TestCase {
+                input: "!false;",
+                operator: "!",
+                value: Box::new(false),
             },
         ];
 
@@ -533,7 +543,7 @@ return 838383;
                                 match &prefix_expr.right {
                                     None => panic!("right expression is None"),
                                     Some(right) => {
-                                        test_integer_literal(&right, test.value);
+                                        test_literal_expression(&right, &*test.value)
                                     }
                                 }
                             } else {
@@ -569,25 +579,39 @@ return 838383;
     fn test_literal_expression(exp: &Box<dyn Expression>, value: &dyn Any) {
         if let Some(int_val) = value.downcast_ref::<i64>() {
             test_integer_literal(exp, *int_val);
+        } else if let Some(ident_val) = value.downcast_ref::<i32>() {
+            test_integer_literal(exp, *ident_val as i64);
         } else if let Some(str_val) = value.downcast_ref::<&str>() {
             test_identifier(exp, str_val);
+        } else if let Some(boolean_val) = value.downcast_ref::<bool>() {
+            test_boolean_literal(exp, *boolean_val);
         } else {
             // 如果不是整数或标识符，抛出错误
             panic!("unsupported literal type");
         }
     }
 
+    fn test_boolean_literal(exp: &Box<dyn Expression>, value: bool) {
+        match exp.as_boolean() {
+            Some(boolean) => {
+                assert_eq!(boolean.value, value);
+                assert_eq!(boolean.token_literal(), value.to_string());
+            }
+            None => panic!("expression is not Boolean"),
+        }
+    }
+
     fn test_infix_expression(
-        exp: &Box<dyn Expression>,
-        left_value: i64,
+        exp: &dyn Expression,
+        left_value: &dyn Any,
         operator: &str,
-        right_value: i64,
+        right_value: &dyn Any,
     ) {
         match exp.as_infix_expression() {
             Some(infix_expr) => {
-                test_literal_expression(&infix_expr.left, &left_value);
+                test_literal_expression(&infix_expr.left, left_value);
                 assert_eq!(infix_expr.operator, operator);
-                test_literal_expression(&infix_expr.right, &right_value);
+                test_literal_expression(&infix_expr.right, right_value);
             }
             None => panic!("expression is not InfixExpression"),
         }
@@ -597,60 +621,63 @@ return 838383;
     fn test_parsing_infix_expressions() {
         struct TestCase {
             input: &'static str,
-            left_value: i64,
+            left_value: Box<dyn Any>,
             operator: &'static str,
-            right_value: i64,
+            right_value: Box<dyn Any>,
         }
 
         let tests = vec![
             TestCase {
                 input: "5 + 6;",
-                left_value: 5,
+                left_value: Box::new(5),
                 operator: "+",
-                right_value: 6,
+                right_value: Box::new(6),
             },
             TestCase {
                 input: "5 - 6;",
-                left_value: 5,
+                left_value: Box::new(5),
                 operator: "-",
-                right_value: 6,
+                right_value: Box::new(6),
             },
             TestCase {
                 input: "5 * 6;",
-                left_value: 5,
+                left_value: Box::new(5),
                 operator: "*",
-                right_value: 6,
+                right_value: Box::new(6),
             },
             TestCase {
                 input: "5 / 6;",
-                left_value: 5,
+                left_value: Box::new(5),
                 operator: "/",
-                right_value: 6,
+                right_value: Box::new(6),
             },
             TestCase {
                 input: "5 > 6;",
-                left_value: 5,
+                left_value: Box::new(5),
                 operator: ">",
-                right_value: 6,
+                right_value: Box::new(6),
             },
             TestCase {
                 input: "5 < 6;",
-                left_value: 5,
+                left_value: Box::new(5),
                 operator: "<",
-                right_value: 6,
+                right_value: Box::new(6),
             },
             TestCase {
                 input: "5 == 6;",
-                left_value: 5,
+                left_value: Box::new(5),
                 operator: "==",
-                right_value: 6,
+                right_value: Box::new(6),
             },
             TestCase {
                 input: "5 != 6;",
-                left_value: 5,
+                left_value: Box::new(5),
                 operator: "!=",
-                right_value: 6,
+                right_value: Box::new(6),
             },
+            TestCase{input:"true == true", left_value: Box::new(true), operator: "==", right_value: Box::new(true),},
+            TestCase{input:"true != false", left_value: Box::new(true), operator: "!=", right_value: Box::new(false),},
+            TestCase{input:"false == false", left_value: Box::new(false), operator: "==", right_value: Box::new(false),},
         ];
 
         for test in tests {
@@ -669,9 +696,7 @@ return 838383;
                         None => panic!("expression is None"),
                         Some(expr) => {
                             if let Some(infix_expr) = expr.as_infix_expression() {
-                                test_integer_literal(&infix_expr.left, test.left_value);
-                                assert_eq!(infix_expr.operator, test.operator);
-                                test_integer_literal(&infix_expr.right, test.right_value);
+                                test_infix_expression(infix_expr, &*test.left_value, test.operator, &*test.right_value);
                             } else {
                                 panic!("expression is not InfixExpression");
                             }
