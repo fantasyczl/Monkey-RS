@@ -338,6 +338,7 @@ mod tests {
     use super::*;
     use crate::ast::Node;
     use crate::ast::Statement;
+    use std::any::Any;
 
     #[test]
     fn test_let_statements() {
@@ -540,6 +541,43 @@ return 838383;
                 assert_eq!(int_lit.token_literal(), value.to_string());
             }
             None => panic!("right expression is not IntegerLiteral"),
+        }
+    }
+
+    fn test_identifier(exp: &Box<dyn Expression>, value: &str) {
+        match exp.as_identifier() {
+            Some(ident) => {
+                assert_eq!(ident.value, value);
+                assert_eq!(ident.token_literal(), value);
+            }
+            None => panic!("right expression is not Identifier"),
+        }
+    }
+
+    fn test_literal_expression(exp: &Box<dyn Expression>, value: &dyn Any) {
+        if let Some(int_val) = value.downcast_ref::<i64>() {
+            test_integer_literal(exp, *int_val);
+        } else if let Some(str_val) = value.downcast_ref::<&str>() {
+            test_identifier(exp, str_val);
+        } else {
+            // 如果不是整数或标识符，抛出错误
+            panic!("unsupported literal type");
+        }
+    }
+    
+    fn test_infix_expression(
+        exp: &Box<dyn Expression>,
+        left_value: i64,
+        operator: &str,
+        right_value: i64,
+    ) {
+        match exp.as_infix_expression() {
+            Some(infix_expr) => {
+                test_literal_expression(&infix_expr.left, &left_value);
+                assert_eq!(infix_expr.operator, operator);
+                test_literal_expression(&infix_expr.right, &right_value);
+            }
+            None => panic!("expression is not InfixExpression"),
         }
     }
 
