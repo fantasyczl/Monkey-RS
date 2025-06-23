@@ -38,6 +38,10 @@ pub trait Expression: Node + fmt::Debug + fmt::Display {
     fn as_infix_expression(&self) -> Option<&InfixExpression> {
         None
     }
+    
+    fn as_boolean(&self) -> Option<&Boolean> {
+        None
+    }
 }
 
 pub struct Program {
@@ -265,6 +269,32 @@ impl Expression for InfixExpression {
         Some(self)
     }
 }
+
+#[derive(Debug)]
+pub struct Boolean {
+    pub token: Token,
+    pub value: bool,
+}
+
+impl Node for Boolean {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Expression for Boolean {
+    fn expression_node(&self) {}
+    fn as_boolean(&self) -> Option<&Boolean> {
+        Some(self)
+    }
+}
+
+impl fmt::Display for Boolean {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.token_literal())
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

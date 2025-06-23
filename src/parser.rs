@@ -1,7 +1,4 @@
-use crate::ast::{
-    Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, PrefixExpression,
-    Program, ReturnStatement, Statement, InfixExpression
-};
+use crate::ast::{Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement, Statement, InfixExpression, Boolean};
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
 use once_cell::sync::Lazy;
@@ -59,6 +56,8 @@ impl<'a> Parser<'a> {
         p.register_prefix(TokenType::INT, parse_integer_literal);
         p.register_prefix(TokenType::BANG, parse_prefix_expression);
         p.register_prefix(TokenType::MINUS, parse_prefix_expression);
+        p.register_prefix(TokenType::TRUE, parse_boolean);
+        p.register_prefix(TokenType::FALSE, parse_boolean);
 
         // 注册中缀解析函数
         p.register_infix(TokenType::PLUS, parse_infix_expression);
@@ -310,6 +309,19 @@ fn parse_prefix_expression(parser: &mut Parser) -> Option<Box<dyn Expression>> {
         prefix_expr.right = Some(right);
         prefix_expr as Box<dyn Expression>
     })
+}
+
+fn parse_boolean(parser: &mut Parser) -> Option<Box<dyn Expression>> {
+    let value = match parser.cur_token.tp {
+        TokenType::TRUE => true,
+        TokenType::FALSE => false,
+        _ => return None, // 如果不是布尔类型，返回 None
+    };
+
+    Some(Box::new(Boolean {
+        token: parser.cur_token.clone(),
+        value,
+    }))
 }
 
 fn parse_infix_expression(left: Box<dyn Expression>, parser: &mut Parser) -> Box<dyn Expression> {
@@ -564,7 +576,7 @@ return 838383;
             panic!("unsupported literal type");
         }
     }
-    
+
     fn test_infix_expression(
         exp: &Box<dyn Expression>,
         left_value: i64,
@@ -712,6 +724,43 @@ return 838383;
 
             let actual = program.to_string();
             assert_eq!(actual, test.expected, "input: {}", test.input);
+        }
+    }
+
+    #[test]
+    fn test_boolean_expression() {
+        let input = r#"
+        true;
+        false;
+        "#;
+
+        let tests = vec![
+            true,
+            false,
+        ];
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        assert_eq!(program.statements.len(), 2);
+
+        for (i, stmt) in program.statements.iter().enumerate() {
+            match stmt.as_expression_statement() {
+                Some(expr_stmt) => match &expr_stmt.expression {
+                    Some(expr) => {
+                        if let Some(boolean) = expr.as_boolean() {
+                            assert_eq!(boolean.value, tests[i]);
+                            assert_eq!(boolean.token_literal(), boolean.value.to_string());
+                        } else {
+                            panic!("expression is not Boolean");
+                        }
+                    }
+                    None => panic!("expression is None"),
+                },
+                None => panic!("statement is not ExpressionStatement"),
+            }
         }
     }
 }
