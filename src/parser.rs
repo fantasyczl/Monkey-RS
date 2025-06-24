@@ -58,6 +58,7 @@ impl<'a> Parser<'a> {
         p.register_prefix(TokenType::MINUS, parse_prefix_expression);
         p.register_prefix(TokenType::TRUE, parse_boolean);
         p.register_prefix(TokenType::FALSE, parse_boolean);
+        p.register_prefix(TokenType::LPAREN, parse_grouped_expression);
 
         // 注册中缀解析函数
         p.register_infix(TokenType::PLUS, parse_infix_expression);
@@ -343,6 +344,18 @@ fn parse_infix_expression(left: Box<dyn Expression>, parser: &mut Parser) -> Box
     }
 
     expression
+}
+
+fn parse_grouped_expression(parser: &mut Parser) -> Option<Box<dyn Expression>> {
+    parser.next_token(); // 跳过左括号
+
+    let exp = parser.parse_expression(LOWEST);
+
+    if !parser.expect_peek(TokenType::RPAREN) {
+        return None;
+    }
+
+    exp
 }
 
 #[cfg(test)]
@@ -743,6 +756,12 @@ return 838383;
             TestCase{input: "false", expected: "false"},
             TestCase{input: "3 > 5 == false", expected: "((3 > 5) == false)"},
             TestCase{input: "3 < 5 == false", expected: "((3 < 5) == false)"},
+            TestCase{input: "1 + (2 + 3) + 4", expected: "((1 + (2 + 3)) + 4)"},
+            TestCase{input: "(5 + 5) * 2", expected: "((5 + 5) * 2)"},
+            TestCase{input: "2 / (5 + 5)", expected: "(2 / (5 + 5))"},
+            TestCase{input: "2 * (5 + 5)", expected: "(2 * (5 + 5))"},
+            TestCase{input: "-(5 + 5)", expected: "(-(5 + 5))"},
+            TestCase{input: "!(true == true)", expected: "(!(true == true))"},
         ];
 
         for test in tests {
