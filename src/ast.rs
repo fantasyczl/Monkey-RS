@@ -5,7 +5,7 @@ pub trait Node {
     fn token_literal(&self) -> String;
 }
 
-pub trait Statement: Node + fmt::Display {
+pub trait Statement: Node + fmt::Display + fmt::Debug {
     fn statement_node(&self);
     fn as_let_statement(&self) -> Option<&LetStatement> {
         None
@@ -42,6 +42,10 @@ pub trait Expression: Node + fmt::Debug + fmt::Display {
     fn as_boolean(&self) -> Option<&Boolean> {
         None
     }
+    
+    fn as_if_expression(&self) -> Option<&IfExpression> {
+        None
+    }
 }
 
 pub struct Program {
@@ -72,6 +76,7 @@ impl fmt::Display for Program {
     }
 }
 
+#[derive(Debug)]
 pub struct LetStatement {
     pub token: Token,
     pub name: Box<Identifier>,
@@ -158,6 +163,7 @@ impl fmt::Display for ReturnStatement {
     }
 }
 
+#[derive(Debug)]
 pub struct ExpressionStatement {
     pub token: Token,
     pub expression: Option<Box<dyn Expression>>,
@@ -292,6 +298,68 @@ impl Expression for Boolean {
 impl fmt::Display for Boolean {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.token_literal())
+    }
+}
+
+#[derive(Debug)]
+pub struct IfExpression {
+    pub token: Token,
+    pub condition: Box<dyn Expression>,
+    pub consequence: BlockStatement,
+    pub alternative: Option<BlockStatement>,
+}
+
+impl Node for IfExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Expression for IfExpression {
+    fn expression_node(&self) {}
+    fn as_if_expression(&self) -> Option<&IfExpression> {
+        Some(self)
+    }
+}
+
+impl fmt::Display for IfExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut out = String::new();
+        out.push_str("if ");
+        out.push_str(&self.condition.to_string());
+        out.push_str(" ");
+        out.push_str(&self.consequence.to_string());
+        if let Some(alternative) = &self.alternative {
+            out.push_str(" else ");
+            out.push_str(&alternative.to_string());
+        }
+        write!(f, "{}", out)
+    }
+}
+
+#[derive(Debug)]
+pub struct BlockStatement {
+    pub token: Token,
+    pub statements: Vec<Box<dyn Statement>>,
+}
+
+impl Node for BlockStatement {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Statement for BlockStatement {
+    fn statement_node(&self) {}
+}
+
+impl fmt::Display for BlockStatement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut out = String::new();
+        for statement in &self.statements {
+            out.push_str(&statement.to_string());
+        }
+        write!(f, "{}", out)
     }
 }
 

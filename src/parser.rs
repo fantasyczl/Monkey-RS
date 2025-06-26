@@ -811,4 +811,59 @@ return 838383;
             }
         }
     }
+
+    #[test]
+    fn test_if_expression() {
+        let input = r#"
+        if (x < y) {
+            x;
+        }
+        "#;
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        assert_eq!(program.statements.len(), 1);
+
+        match program.statements.get(0) {
+            None => panic!("statement index 0 is None"),
+            Some(stmt) => match stmt.as_expression_statement() {
+                None => panic!("statement is not ExpressionStatement"),
+                Some(expr_stmt) => match &expr_stmt.expression {
+                    None => panic!("expression is None"),
+                    Some(expr) => {
+                        match expr.as_if_expression() {
+                            None => panic!("expression is not IfExpression"),
+                            Some(if_expr) => {
+                                test_infix_expression(&*if_expr.condition, &"x", "<", &"y");
+                                // test consequence
+                                assert_eq!(if_expr.consequence.statements.len(), 1);
+                                match if_expr.consequence.statements.get(0).unwrap().as_expression_statement() {
+                                    None => panic!("statement is not ExpressionStatement"),
+                                    Some(consequent_stmt) => {
+                                        match &consequent_stmt.expression {
+                                            None => panic!("expression is None"),
+                                            Some(consequent_expr) => {
+                                                test_identifier(consequent_expr, "x");
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // test alternative
+                                assert!(if_expr.alternative.is_none());
+                            }
+                        }
+                    }
+                },
+            },
+        }
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        // TODO
+    }
 }
