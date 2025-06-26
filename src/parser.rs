@@ -1,4 +1,4 @@
-use crate::ast::{Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement, Statement, InfixExpression, Boolean};
+use crate::ast::{Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement, Statement, InfixExpression, Boolean, BlockStatement};
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
 use once_cell::sync::Lazy;
@@ -59,6 +59,7 @@ impl<'a> Parser<'a> {
         p.register_prefix(TokenType::TRUE, parse_boolean);
         p.register_prefix(TokenType::FALSE, parse_boolean);
         p.register_prefix(TokenType::LPAREN, parse_grouped_expression);
+        p.register_prefix(TokenType::IF, parse_if_expression);
 
         // 注册中缀解析函数
         p.register_infix(TokenType::PLUS, parse_infix_expression);
@@ -356,6 +357,52 @@ fn parse_grouped_expression(parser: &mut Parser) -> Option<Box<dyn Expression>> 
     }
 
     exp
+}
+
+fn parse_if_expression(parser: &mut Parser) -> Option<Box<dyn Expression>> {
+    let mut if_exp = Box::new(crate::ast::IfExpression::new(parser.cur_token.clone()));
+
+    if !parser.expect_peek(TokenType::LPAREN) {
+        return None;
+    }
+
+    parser.next_token();
+
+    // 解析条件表达式
+    let condition = parser.parse_expression(LOWEST);
+    if condition.is_none() {
+        return None;
+    }
+
+    if_exp.condition = condition.unwrap();
+
+    if !parser.expect_peek(TokenType::RPAREN) {
+        return None;
+    }
+
+    if !parser.expect_peek(TokenType::LBRACE) {
+        return None;
+    }
+
+    // 解析 consequence
+    let consequence = parse_block_statement(parser);
+    if consequence.is_some() {
+        if_exp.consequence = consequence.unwrap();
+    }
+
+    Some(if_exp as Box<dyn Expression>)
+}
+
+fn parse_block_statement(parser: &mut Parser) -> Option<BlockStatement> {
+    // TODO
+    let mut block = BlockStatement::new(parser.cur_token.clone());
+    parser.next_token();
+
+    while !parser.cur_token_is(TokenType::RBRACE) {
+        parser.next_token();
+    }
+
+    Some(block)
 }
 
 #[cfg(test)]
@@ -864,6 +911,60 @@ return 838383;
 
     #[test]
     fn test_if_else_expression() {
-        // TODO
+        let input = r#"
+        if (x < y) { x } else { y }
+        "#;
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        assert_eq!(program.statements.len(), 1);
+
+        match program.statements.get(0).unwrap().as_expression_statement() {
+            None => panic!("statement is not ExpressionStatement"),
+
+            Some(expr_stmt) => match &expr_stmt.expression {
+                None => panic!("expression is None"),
+                Some(expr) => {
+                    match expr.as_if_expression() {
+                        None => panic!("expression is not IfExpression"),
+                        Some(if_expr) => {
+                            test_infix_expression(&*if_expr.condition, &"x", "<", &"y");
+
+                            // test consequence
+                            assert_eq!(if_expr.consequence.statements.len(), 1);
+                            match if_expr.consequence.statements.get(0).unwrap().as_expression_statement() {
+                                None => panic!("statement is not ExpressionStatement"),
+                                Some(consequent_stmt) => {
+                                    match &consequent_stmt.expression {
+                                        None => panic!("expression is None"),
+                                        Some(consequent_expr) => {
+                                            test_identifier(consequent_expr, "x");
+                                        }
+                                    }
+                                }
+                            }
+
+                            // test alternative
+                            assert!(if_expr.alternative.is_some());
+                            let alt = if_expr.alternative.as_ref().unwrap();
+                            assert_eq!(alt.statements.len(), 1);
+                            match alt.statements.get(0).unwrap().as_expression_statement() {
+                                None => panic!("statement is not ExpressionStatement"),
+                                Some(alternative_stmt) => {
+                                    match &alternative_stmt.expression {
+                                        None => panic!("expression is None"),
+                                        Some(alternative_expr) => {
+                                            test_identifier(alternative_expr, "y");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        }
     }
 }

@@ -1,4 +1,4 @@
-use crate::token::Token;
+use crate::token::{Token, TokenType};
 use std::fmt;
 
 pub trait Node {
@@ -112,6 +112,15 @@ impl fmt::Display for LetStatement {
 pub struct Identifier {
     pub token: Token,
     pub value: String,
+}
+
+impl Identifier {
+    pub fn default() -> Self {
+        Identifier {
+            token: Token::new_illegal(),
+            value: "".to_string(),
+        }
+    }
 }
 
 impl Node for Identifier {
@@ -309,6 +318,22 @@ pub struct IfExpression {
     pub alternative: Option<BlockStatement>,
 }
 
+impl IfExpression {
+    pub fn new(tp: Token) -> Self {
+        let mut exp = Self::default();
+        exp.token = tp;
+        exp
+    }
+    pub fn default() -> Self {
+        IfExpression {
+            token: Token::new_illegal(),
+            condition: Box::new(Identifier::default()),
+            consequence: BlockStatement::default(),
+            alternative: None,
+        }
+    }
+}
+
 impl Node for IfExpression {
     fn token_literal(&self) -> String {
         self.token.literal.clone()
@@ -341,6 +366,22 @@ impl fmt::Display for IfExpression {
 pub struct BlockStatement {
     pub token: Token,
     pub statements: Vec<Box<dyn Statement>>,
+}
+
+impl BlockStatement {
+    pub fn new(token: Token) -> Self {
+        BlockStatement {
+            token,
+            statements: vec![],
+        }
+    }
+
+    pub fn default() -> Self {
+        BlockStatement {
+            token: Token::new_illegal(),
+            statements: vec![],
+        }
+    }
 }
 
 impl Node for BlockStatement {
