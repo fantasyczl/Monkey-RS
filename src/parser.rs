@@ -394,11 +394,15 @@ fn parse_if_expression(parser: &mut Parser) -> Option<Box<dyn Expression>> {
 }
 
 fn parse_block_statement(parser: &mut Parser) -> Option<BlockStatement> {
-    // TODO
     let mut block = BlockStatement::new(parser.cur_token.clone());
     parser.next_token();
 
-    while !parser.cur_token_is(TokenType::RBRACE) {
+    while !parser.cur_token_is(TokenType::RBRACE) && !parser.cur_token_is(TokenType::EOF) {
+        let stmt = parser.parse_statement();
+        if let Some(statement) = stmt {
+            block.statements.push(statement);
+        }
+
         parser.next_token();
     }
 
