@@ -404,6 +404,50 @@ impl fmt::Display for BlockStatement {
     }
 }
 
+#[derive(Debug)]
+pub struct FunctionLiteral {
+    pub token: Token,
+    pub parameters: Vec<Identifier>,
+    pub body: BlockStatement,
+}
+
+impl FunctionLiteral {
+    pub fn new(token: Token) -> Self {
+        FunctionLiteral {
+            token,
+            parameters: vec![],
+            body: BlockStatement::default(),
+        }
+    }
+}
+
+impl Node for FunctionLiteral {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Expression for FunctionLiteral {
+    fn expression_node(&self) {}
+}
+
+impl fmt::Display for FunctionLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut out = String::new();
+        out.push_str(&self.token_literal());
+        out.push_str("(");
+        for (i, param) in self.parameters.iter().enumerate() {
+            out.push_str(&param.to_string());
+            if i < self.parameters.len() - 1 {
+                out.push_str(", ");
+            }
+        }
+        out.push_str(") ");
+        out.push_str(&self.body.to_string());
+        write!(f, "{}", out)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

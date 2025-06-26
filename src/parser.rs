@@ -981,4 +981,20 @@ return 838383;
             },
         }
     }
+
+    #[test]
+    fn test_function_literal_parsing() {
+        let input = r#"
+        fn(x, y) {
+            x + y;
+        }
+        "#;
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        
+        assert_eq!(program.statements.len(), 1);
+    }
 }
