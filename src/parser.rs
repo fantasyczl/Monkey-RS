@@ -390,6 +390,16 @@ fn parse_if_expression(parser: &mut Parser) -> Option<Box<dyn Expression>> {
         if_exp.consequence = consequence.unwrap();
     }
 
+    if parser.peek_token_is(TokenType::ELSE) {
+        parser.next_token();
+        if !parser.expect_peek(TokenType::LBRACE) {
+            return None;
+        }
+
+        // 解析 alternative
+        if_exp.alternative = parse_block_statement(parser);
+    }
+
     Some(if_exp as Box<dyn Expression>)
 }
 
