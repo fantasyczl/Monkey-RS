@@ -46,6 +46,10 @@ pub trait Expression: Node + fmt::Debug + fmt::Display {
     fn as_if_expression(&self) -> Option<&IfExpression> {
         None
     }
+
+    fn as_function_literal(&self) -> Option<&FunctionLiteral> {
+        None
+    }
 }
 
 pub struct Program {
@@ -108,7 +112,7 @@ impl fmt::Display for LetStatement {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Identifier {
     pub token: Token,
     pub value: String,
@@ -429,6 +433,9 @@ impl Node for FunctionLiteral {
 
 impl Expression for FunctionLiteral {
     fn expression_node(&self) {}
+    fn as_function_literal(&self) -> Option<&FunctionLiteral> {
+        Some(self)
+    }
 }
 
 impl fmt::Display for FunctionLiteral {

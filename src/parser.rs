@@ -1,4 +1,4 @@
-use crate::ast::{Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement, Statement, InfixExpression, Boolean, BlockStatement};
+use crate::ast::{Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement, Statement, InfixExpression, Boolean, BlockStatement, FunctionLiteral};
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
 use once_cell::sync::Lazy;
@@ -9,7 +9,7 @@ type InfixParseFn = fn(Box<dyn Expression>, &mut Parser) -> Box<dyn Expression>;
 
 const LOWEST: i32 = 0; // 最低优先级
 const EQUALS: i32 = 1; // ==
-const LESSGREATER: i32 = 2; // < or >
+const LESS_GREATER: i32 = 2; // < or >
 const SUM: i32 = 3; // + or -
 const PRODUCT: i32 = 4; // * or /
 const PREFIX: i32 = 5; // -X or !X
@@ -20,8 +20,8 @@ static PRECEDENCES: Lazy<HashMap<TokenType, i32>> = Lazy::new(|| {
     HashMap::from([
         (TokenType::EQ, EQUALS),
         (TokenType::NotEq, EQUALS),
-        (TokenType::LT, LESSGREATER),
-        (TokenType::GT, LESSGREATER),
+        (TokenType::LT, LESS_GREATER),
+        (TokenType::GT, LESS_GREATER),
         (TokenType::PLUS, SUM),
         (TokenType::MINUS, SUM),
         (TokenType::SLASH, PRODUCT),
@@ -60,6 +60,7 @@ impl<'a> Parser<'a> {
         p.register_prefix(TokenType::FALSE, parse_boolean);
         p.register_prefix(TokenType::LPAREN, parse_grouped_expression);
         p.register_prefix(TokenType::IF, parse_if_expression);
+        p.register_prefix(TokenType::FUNCTION, parse_function_literal);
 
         // 注册中缀解析函数
         p.register_infix(TokenType::PLUS, parse_infix_expression);
@@ -417,6 +418,57 @@ fn parse_block_statement(parser: &mut Parser) -> Option<BlockStatement> {
     }
 
     Some(block)
+}
+
+fn parse_function_literal(parser: &mut Parser) -> Option<Box<dyn Expression>> {
+    let mut function_literal = Box::new(FunctionLiteral::new(parser.cur_token.clone()));
+    if !parser.expect_peek(TokenType::LPAREN) {
+        return None;
+    }
+
+    // 解析参数列表
+    function_literal.parameters = parse_function_parameters(parser);
+
+    // 解析函数体
+    if !parser.expect_peek(TokenType::LBRACE) {
+        return None;
+    }
+
+    function_literal.body = parse_block_statement(parser).unwrap_or_else(|| BlockStatement::new(Token::new_illegal()));
+
+    Some(function_literal)
+}
+
+fn parse_function_parameters(parser: &mut Parser) -> Vec<Identifier> {
+    let mut parameters = Vec::new();
+    if parser.peek_token_is(TokenType::RPAREN) {
+        parser.next_token(); // 跳过右括号
+        return parameters;
+    }
+    
+    parser.next_token();
+    
+    loop {
+        let param = Identifier{
+            token: parser.cur_token.clone(),
+            value: parser.cur_token.literal.clone(),
+        };
+        
+        parameters.push(param);
+        
+        if !parser.peek_token_is(TokenType::COMMA) {
+            break; // 如果下一个 token 不是逗号，结束参数解析
+        }
+        
+        parser.next_token(); // 跳过逗号
+        parser.next_token(); // 跳过逗号
+    }
+    
+    if !parser.expect_peek(TokenType::RPAREN) {
+        return vec![]; // 如果没有正确的右括号，返回空参数列表
+    }
+    
+    parameters
 }
 
 #[cfg(test)]
@@ -996,5 +1048,30 @@ return 838383;
         check_parser_errors(&p);
         
         assert_eq!(program.statements.len(), 1);
+
+        match program.statements.get(0).unwrap().as_expression_statement().
+            unwrap().expression.as_ref().unwrap().as_function_literal() {
+            None => panic!("expression is not FunctionLiteral"),
+            Some(function_literal) => {
+                assert_eq!(function_literal.parameters.len(), 2);
+
+                // parameters
+                let param0: Box<dyn Expression> = Box::new(function_literal.parameters[0].clone());
+                test_literal_expression(&param0, &"x");
+                let param1: Box<dyn Expression> = Box::new(function_literal.parameters[1].clone());
+                test_literal_expression(&param1, &"y");
+
+                // body
+                assert_eq!(function_literal.body.statements.len(), 1);
+
+                match function_literal.body.statements.get(0).unwrap().as_expression_statement() {
+                    None => panic!("statement is not ExpressionStatement"),
+                    Some(expr_stmt) => {
+                        let expression = expr_stmt.expression.as_ref().unwrap();
+                        test_infix_expression(&**expression, &"x", "+", &"y");
+                    }
+                }
+            },
+        }
     }
 }
