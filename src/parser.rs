@@ -445,7 +445,7 @@ fn parse_function_parameters(parser: &mut Parser) -> Vec<Identifier> {
         parser.next_token(); // 跳过右括号
         return parameters;
     }
-    
+
     parser.next_token();
     
     loop {
@@ -1072,6 +1072,35 @@ return 838383;
                     }
                 }
             },
+        }
+    }
+
+    #[test]
+    fn test_function_parameters_parsing() {
+        let tests: Vec<(&str, Vec<&str>)> = vec![
+            ("fn(){};", vec![]),
+            ("fn(x){};", vec!["x"]),
+            ("fn(x, y, z){};", vec!["x", "y", "z"]),
+        ];
+
+        for test in tests {
+            let mut l = Lexer::new(test.0);
+            let mut p = Parser::new(&mut l);
+            let program = p.parse_program();
+            check_parser_errors(&p);
+
+            assert_eq!(program.statements.len(), 1);
+
+            let function_literal = program.statements.get(0).unwrap()
+                .as_expression_statement().unwrap()
+                .expression.as_ref().unwrap().as_function_literal().unwrap();
+
+            assert_eq!(function_literal.parameters.len(), test.1.len());
+
+            for (i, param) in function_literal.parameters.iter().enumerate() {
+                let p: Box<dyn Expression> = Box::new(param.clone());
+                test_literal_expression(&p, test.1.get(i).unwrap());
+            }
         }
     }
 }
