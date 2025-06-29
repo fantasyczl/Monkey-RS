@@ -189,13 +189,10 @@ impl<'a> Parser<'a> {
 
         if let Some(val) = self.parse_expression(LOWEST) {
             stmt.return_value = val;
-        } else {
-            self.add_error("无法解析 return 语句的值".to_string());
-            return None; // 如果解析失败，返回 None
         }
 
-        if !self.expect_peek(TokenType::SEMICOLON) {
-            return None; // 如果没有分号，返回 None
+        if self.peek_token_is(TokenType::SEMICOLON) {
+            self.next_token();
         }
 
         Some(stmt)
