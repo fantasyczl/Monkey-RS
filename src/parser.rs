@@ -487,12 +487,12 @@ fn parse_call_expression(left: Box<dyn Expression>, parser: &mut Parser) -> Box<
 
 fn parse_call_arguments(parser: &mut Parser) -> Vec<Box<dyn Expression>> {
     let mut args = Vec::new();
-    parser.next_token();
-
     if parser.peek_token_is(TokenType::RPAREN) {
         parser.next_token(); // 跳过右括号
         return args; // 如果没有参数，直接返回空列表
     }
+
+    parser.next_token();
 
     loop {
         let expr = parser.parse_expression(LOWEST);
@@ -1179,6 +1179,31 @@ return 838383;
                 test_infix_expression(&*call_expr.arguments[1], &2i64, "*", &3i64);
                 // 测试第三个参数
                 test_infix_expression(&*call_expr.arguments[2], &4i64, "+", &5i64);
+            }
+        }
+    }
+
+    #[test]
+    fn test_call_expression_parsing_empty() {
+        let input = r#"
+        add();
+        "#;
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        assert_eq!(program.statements.len(), 1);
+
+        match program.statements.get(0).unwrap().as_expression_statement().unwrap().
+            expression.as_ref().unwrap()
+            .as_call_expression()
+        {
+            None => panic!("expression is not CallExpression"),
+            Some(call_expr) => {
+                test_identifier(&call_expr.function, "add");
+                assert_eq!(call_expr.arguments.len(), 0);
             }
         }
     }
