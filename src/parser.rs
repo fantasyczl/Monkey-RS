@@ -159,16 +159,25 @@ impl<'a> Parser<'a> {
             return None;
         }
 
-        // TODO: 跳过对表达式的处理，直到遇到分号
-        while !self.cur_token_is(TokenType::SEMICOLON) {
-            self.next_token();
+        self.next_token();
+
+        // 跳过对表达式的处理，直到遇到分号
+        if let Some(val) = self.parse_expression(LOWEST) {
+            stmt.value = val;
+        } else  {
+            self.add_error("无法解析 let 语句的值".to_string());
+            return None; // 如果解析失败，返回 None
+        }
+
+        if !self.expect_peek(TokenType::SEMICOLON) {
+            return None; // 如果没有分号，返回 None
         }
 
         Some(stmt)
     }
 
     fn parse_return_statement(&mut self) -> Option<Box<dyn Statement>> {
-        let stmt = Box::new(ReturnStatement {
+        let mut stmt = Box::new(ReturnStatement {
             token: self.cur_token.clone(),
             return_value: Box::new(Identifier {
                 token: Token::new_illegal(),
@@ -178,9 +187,15 @@ impl<'a> Parser<'a> {
 
         self.next_token();
 
-        // TODO: 跳过对表达式的处理，直到遇到分号
-        while !self.cur_token_is(TokenType::SEMICOLON) {
-            self.next_token();
+        if let Some(val) = self.parse_expression(LOWEST) {
+            stmt.return_value = val;
+        } else {
+            self.add_error("无法解析 return 语句的值".to_string());
+            return None; // 如果解析失败，返回 None
+        }
+
+        if !self.expect_peek(TokenType::SEMICOLON) {
+            return None; // 如果没有分号，返回 None
         }
 
         Some(stmt)
@@ -528,9 +543,13 @@ mod tests {
     #[test]
     fn test_let_statements() {
         // 这里可以添加测试代码来验证 let 语句的解析
-        let input = r#"let x = 5;
-let y = 10;
-let foobar = 838383;
+        let input = r#"
+        let x = 5;
+        let y = 10;
+        let foobar = 838383;
+        let z = true;
+        let not_a_let = 42 + 1;
+        let id = y;
         "#;
 
         let mut l = Lexer::new(input);
@@ -538,10 +557,14 @@ let foobar = 838383;
         let program = p.parse_program();
         check_parser_errors(&p);
 
-        assert_ne!(program.statements.len(), 0);
-        assert_eq!(program.statements.len(), 3);
+        assert_eq!(program.statements.len(), 6);
 
-        let tests = vec![("x", 5), ("y", 10), ("foobar", 838383)];
+        let tests: Vec<(&str, &dyn Any)> = vec![
+            ("x", &5),
+            ("y", &10),
+            ("foobar", &838383),
+            ("z", &true),
+        ];
 
         for (i, tt) in tests.iter().enumerate() {
             if let Some(stmt) = program.statements.get(i) {
@@ -566,10 +589,11 @@ let foobar = 838383;
         panic!("parser has {} errors", errors.len());
     }
 
-    fn test_let_statement(stmt: &Box<dyn Statement>, tt: &(&str, i32)) {
+    fn test_let_statement(stmt: &Box<dyn Statement>, tt: &(&str, &dyn Any)) {
         assert_eq!(stmt.token_literal(), "let");
         if let Some(let_stmt) = stmt.as_let_statement() {
             assert_eq!(let_stmt.name.value, tt.0);
+            test_literal_expression(&let_stmt.value, tt.1);
         } else {
             panic!("stmt is not LetStatement");
         }
