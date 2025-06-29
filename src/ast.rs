@@ -10,11 +10,9 @@ pub trait Statement: Node + fmt::Display + fmt::Debug {
     fn as_let_statement(&self) -> Option<&LetStatement> {
         None
     }
-
     fn as_return_statement(&self) -> Option<&ReturnStatement> {
         None
     }
-
     fn as_expression_statement(&self) -> Option<&ExpressionStatement> {
         None
     }
@@ -22,32 +20,28 @@ pub trait Statement: Node + fmt::Display + fmt::Debug {
 
 pub trait Expression: Node + fmt::Debug + fmt::Display {
     fn expression_node(&self);
-
     fn as_identifier(&self) -> Option<&Identifier> {
         None
     }
-
     fn as_integer_literal(&self) -> Option<&IntegerLiteral> {
         None
     }
-
     fn as_prefix_expression(&self) -> Option<&PrefixExpression> {
         None
     }
-
     fn as_infix_expression(&self) -> Option<&InfixExpression> {
         None
     }
-    
     fn as_boolean(&self) -> Option<&Boolean> {
         None
     }
-    
     fn as_if_expression(&self) -> Option<&IfExpression> {
         None
     }
-
     fn as_function_literal(&self) -> Option<&FunctionLiteral> {
+        None
+    }
+    fn as_call_expression(&self) -> Option<&CallExpression> {
         None
     }
 }
@@ -470,6 +464,9 @@ impl Node for CallExpression {
 
 impl Expression for CallExpression {
     fn expression_node(&self) {}
+    fn as_call_expression(&self) -> Option<&CallExpression> {
+        Some(self)
+    }
 }
 
 impl fmt::Display for CallExpression {

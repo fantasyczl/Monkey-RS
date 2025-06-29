@@ -26,6 +26,7 @@ static PRECEDENCES: Lazy<HashMap<TokenType, i32>> = Lazy::new(|| {
         (TokenType::MINUS, SUM),
         (TokenType::SLASH, PRODUCT),
         (TokenType::ASTERISK, PRODUCT),
+        (TokenType::LPAREN, CALL),
     ])
 });
 
@@ -71,6 +72,7 @@ impl<'a> Parser<'a> {
         p.register_infix(TokenType::NotEq, parse_infix_expression);
         p.register_infix(TokenType::LT, parse_infix_expression);
         p.register_infix(TokenType::GT, parse_infix_expression);
+        p.register_infix(TokenType::LPAREN, parse_call_expression);
 
         // 读取两个词法单元，以设置 cur_token 和 peek_token
         p.next_token();
@@ -469,6 +471,51 @@ fn parse_function_parameters(parser: &mut Parser) -> Vec<Identifier> {
     }
     
     parameters
+}
+
+fn parse_call_expression(left: Box<dyn Expression>, parser: &mut Parser) -> Box<dyn Expression> {
+    let mut call_expr = Box::new(crate::ast::CallExpression {
+        token: parser.cur_token.clone(),
+        function: left,
+        arguments: Vec::new(),
+    });
+
+    call_expr.arguments = parse_call_arguments(parser);
+
+    call_expr
+}
+
+fn parse_call_arguments(parser: &mut Parser) -> Vec<Box<dyn Expression>> {
+    let mut args = Vec::new();
+    parser.next_token();
+
+    if parser.peek_token_is(TokenType::RPAREN) {
+        parser.next_token(); // 跳过右括号
+        return args; // 如果没有参数，直接返回空列表
+    }
+
+    loop {
+        let expr = parser.parse_expression(LOWEST);
+        if let Some(expression) = expr {
+            args.push(expression);
+        } else {
+            parser.add_error("无法解析函数调用参数".to_string());
+            return args; // 如果解析失败，返回已解析的参数列表
+        }
+
+        if !parser.peek_token_is(TokenType::COMMA) {
+            break
+        }
+        parser.next_token();
+        parser.next_token();
+    }
+
+    // 如果下一个 token 不是右括号，抛出错误
+    if !parser.expect_peek(TokenType::RPAREN) {
+        return args
+    }
+
+    args
 }
 
 #[cfg(test)]
@@ -1100,6 +1147,38 @@ return 838383;
             for (i, param) in function_literal.parameters.iter().enumerate() {
                 let p: Box<dyn Expression> = Box::new(param.clone());
                 test_literal_expression(&p, test.1.get(i).unwrap());
+            }
+        }
+    }
+
+    #[test]
+    fn test_call_expression_parsing() {
+        let input = r#"
+        add(1, 2 * 3, 4 + 5);
+        "#;
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        assert_eq!(program.statements.len(), 1);
+
+        match program.statements.get(0).unwrap().as_expression_statement().unwrap().
+            expression.as_ref().unwrap()
+            .as_call_expression()
+        {
+            None => panic!("expression is not CallExpression"),
+            Some(call_expr) => {
+                test_identifier(&call_expr.function, "add");
+                assert_eq!(call_expr.arguments.len(), 3);
+
+                // 测试第一个参数
+                test_literal_expression(&call_expr.arguments[0], &1i64);
+                // 测试第二个参数
+                test_infix_expression(&*call_expr.arguments[1], &2i64, "*", &3i64);
+                // 测试第三个参数
+                test_infix_expression(&*call_expr.arguments[2], &4i64, "+", &5i64);
             }
         }
     }
