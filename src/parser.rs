@@ -179,17 +179,12 @@ impl<'a> Parser<'a> {
     fn parse_return_statement(&mut self) -> Option<Box<dyn Statement>> {
         let mut stmt = Box::new(ReturnStatement {
             token: self.cur_token.clone(),
-            return_value: Box::new(Identifier {
-                token: Token::new_illegal(),
-                value: "".to_string(), // 初始值为空，稍后会被更新
-            }),
+            return_value: None,
         });
 
         self.next_token();
 
-        if let Some(val) = self.parse_expression(LOWEST) {
-            stmt.return_value = val;
-        }
+        stmt.return_value = self.parse_expression(LOWEST);
 
         if self.peek_token_is(TokenType::SEMICOLON) {
             self.next_token();
@@ -603,20 +598,44 @@ mod tests {
         return 5;
 return 10;
 return 838383;
+return 5 + 1;
+return x + y + 2;
         "#;
+
+        let tests = vec![
+            "5",
+            "10",
+            "838383",
+            "(5 + 1)",
+            "((x + y) + 2)",
+        ];
 
         let mut l = Lexer::new(input);
         let mut p = Parser::new(&mut l);
         let program = p.parse_program();
         check_parser_errors(&p);
-        assert_eq!(program.statements.len(), 3);
+        assert_eq!(program.statements.len(), tests.len());
 
-        for stmt in program.statements {
-            if let Some(return_stmt) = stmt.as_return_statement() {
-                assert_eq!(return_stmt.token_literal(), "return");
-                // 这里可以添加更多的断言来验证 return 语句的值
-            } else {
-                panic!("stmt is not ReturnStatement");
+        for (i, test) in tests.iter().enumerate() {
+            match program.statements.get(i).unwrap().as_return_statement() {
+                None => {
+                    panic!("statement at index {} is not an ReturnStatement", i);
+                },
+                Some(return_stmt) => {
+                    // match stmt.as_return_statement() {
+                    //     None => {
+                    //         panic!("statement at index {} is not a ReturnStatement", i);
+                    //     },
+                    //     Some(return_stmt) => {
+                            assert_eq!(return_stmt.token_literal(), "return");
+                            if let Some(return_value) = &return_stmt.return_value {
+                                assert_eq!(return_value.to_string(), *test);
+                            } else {
+                                panic!("return statement at index {} has no return value", i);
+                            }
+                    //     }
+                    // }
+                }
             }
         }
     }

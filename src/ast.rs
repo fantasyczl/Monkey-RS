@@ -131,7 +131,7 @@ impl fmt::Display for Identifier {
 #[derive(Debug)]
 pub struct ReturnStatement {
     pub token: Token,
-    pub return_value: Box<dyn Expression>,
+    pub return_value: Option<Box<dyn Expression>>,
 }
 
 impl Node for ReturnStatement {
@@ -148,12 +148,15 @@ impl Statement for ReturnStatement {
 
 impl fmt::Display for ReturnStatement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} {};",
-            self.token_literal(),
-            self.return_value.token_literal()
-        )
+        let mut out = String::new();
+        out.push_str(self.token_literal().as_str());
+
+        if let Some(return_value) = &self.return_value {
+            out.push_str(" ");
+            out.push_str(&return_value.to_string());
+        }
+
+        write!( f, "{};", out)
     }
 }
 
@@ -496,13 +499,13 @@ mod tests {
                         tp: RETURN,
                         literal: "return".to_string(),
                     },
-                    return_value: Box::new(IntegerLiteral {
+                    return_value: Some(Box::new(IntegerLiteral {
                         token: Token {
                             tp: INT,
                             literal: "10".to_string(),
                         },
                         value: 10,
-                    }),
+                    })),
                 }),
             ],
         };
