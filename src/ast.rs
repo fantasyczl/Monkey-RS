@@ -6,7 +6,6 @@ pub trait Node {
 }
 
 pub trait Statement: Node + fmt::Display + fmt::Debug {
-    fn statement_node(&self);
     fn as_let_statement(&self) -> Option<&LetStatement> {
         None
     }
@@ -19,7 +18,6 @@ pub trait Statement: Node + fmt::Display + fmt::Debug {
 }
 
 pub trait Expression: Node + fmt::Debug + fmt::Display {
-    fn expression_node(&self);
     fn as_identifier(&self) -> Option<&Identifier> {
         None
     }
@@ -54,14 +52,6 @@ impl Program {
     pub fn new() -> Self {
         Program { statements: vec![] }
     }
-
-    pub fn token_literal(&self) -> String {
-        if self.statements.len() > 0 {
-            self.statements[0].token_literal()
-        } else {
-            String::new()
-        }
-    }
 }
 
 impl fmt::Display for Program {
@@ -88,7 +78,6 @@ impl<'a> Node for LetStatement {
 }
 
 impl<'a> Statement for LetStatement {
-    fn statement_node(&self) {}
     fn as_let_statement(&self) -> Option<&LetStatement> {
         Some(self)
     }
@@ -128,7 +117,6 @@ impl Node for Identifier {
 }
 
 impl Expression for Identifier {
-    fn expression_node(&self) {}
     fn as_identifier(&self) -> Option<&Identifier> {
         Some(self)
     }
@@ -153,7 +141,6 @@ impl Node for ReturnStatement {
 }
 
 impl Statement for ReturnStatement {
-    fn statement_node(&self) {}
     fn as_return_statement(&self) -> Option<&ReturnStatement> {
         Some(self)
     }
@@ -183,7 +170,6 @@ impl Node for ExpressionStatement {
 }
 
 impl Statement for ExpressionStatement {
-    fn statement_node(&self) {}
     fn as_expression_statement(&self) -> Option<&ExpressionStatement> {
         Some(self)
     }
@@ -212,7 +198,6 @@ impl Node for IntegerLiteral {
 }
 
 impl Expression for IntegerLiteral {
-    fn expression_node(&self) {}
     fn as_integer_literal(&self) -> Option<&IntegerLiteral> {
         Some(self)
     }
@@ -238,8 +223,6 @@ impl Node for PrefixExpression {
 }
 
 impl Expression for PrefixExpression {
-    fn expression_node(&self) {}
-
     fn as_prefix_expression(&self) -> Option<&PrefixExpression> {
         Some(self)
     }
@@ -276,8 +259,6 @@ impl Node for InfixExpression {
 }
 
 impl Expression for InfixExpression {
-    fn expression_node(&self) {}
-
     fn as_infix_expression(&self) -> Option<&InfixExpression> {
         Some(self)
     }
@@ -296,7 +277,6 @@ impl Node for Boolean {
 }
 
 impl Expression for Boolean {
-    fn expression_node(&self) {}
     fn as_boolean(&self) -> Option<&Boolean> {
         Some(self)
     }
@@ -339,7 +319,6 @@ impl Node for IfExpression {
 }
 
 impl Expression for IfExpression {
-    fn expression_node(&self) {}
     fn as_if_expression(&self) -> Option<&IfExpression> {
         Some(self)
     }
@@ -389,7 +368,6 @@ impl Node for BlockStatement {
 }
 
 impl Statement for BlockStatement {
-    fn statement_node(&self) {}
 }
 
 impl fmt::Display for BlockStatement {
@@ -426,7 +404,6 @@ impl Node for FunctionLiteral {
 }
 
 impl Expression for FunctionLiteral {
-    fn expression_node(&self) {}
     fn as_function_literal(&self) -> Option<&FunctionLiteral> {
         Some(self)
     }
@@ -463,7 +440,6 @@ impl Node for CallExpression {
 }
 
 impl Expression for CallExpression {
-    fn expression_node(&self) {}
     fn as_call_expression(&self) -> Option<&CallExpression> {
         Some(self)
     }
