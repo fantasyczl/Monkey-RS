@@ -110,7 +110,7 @@ impl<'a> Parser<'a> {
         self.peek_token = self.l.next_token();
     }
 
-    fn parse_program(&mut self) -> Program {
+    pub fn parse_program(&mut self) -> Program {
         // 创建一个新的 Program 实例
         let mut program = Program::new();
 

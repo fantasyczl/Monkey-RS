@@ -1,6 +1,7 @@
 use std::io::BufRead;
 use crate::lexer::Lexer;
 use crate::token::TokenType;
+use crate::parser::Parser;
 
 const PROMPT: &str = ">> ";
 
@@ -23,13 +24,26 @@ pub fn start_repl(input : &mut dyn std::io::Read, out: &mut dyn std::io::Write) 
         }
 
         let mut l = Lexer::new(line);
-
-        loop {
-            let token = l.next_token();
-            if token.tp == TokenType::EOF {
-                break; // 读取到 EOF，退出循环
-            }
-            writeln!(out, "{:?}", token).unwrap();
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        if !p.errors().is_empty() {
+            // 输出错误信息
+            print_error(out, p.errors());
+            continue; // 如果解析出错，继续下一次循环
         }
+
+        writeln!(out, "{}", program.to_string()).unwrap();
     }
+}
+
+fn print_error(out: &mut dyn std::io::Write, errors: &Vec<String>) {
+    if errors.is_empty() {
+        return; // 如果没有错误，直接返回
+    }
+
+    for msg in errors {
+        writeln!(out, "ERROR: {}", msg).unwrap();
+    }
+    writeln!(out, "parser has {} error", errors.len()).unwrap();
+    out.flush().unwrap();
 }
