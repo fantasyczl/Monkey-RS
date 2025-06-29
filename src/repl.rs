@@ -1,6 +1,5 @@
 use std::io::BufRead;
 use crate::lexer::Lexer;
-use crate::token::TokenType;
 use crate::parser::Parser;
 
 const PROMPT: &str = ">> ";
