@@ -922,6 +922,9 @@ return 838383;
             TestCase{input: "2 * (5 + 5)", expected: "(2 * (5 + 5))"},
             TestCase{input: "-(5 + 5)", expected: "(-(5 + 5))"},
             TestCase{input: "!(true == true)", expected: "(!(true == true))"},
+            TestCase{input: "a + add(b * c) + d", expected: "((a + add((b * c))) + d)"},
+            TestCase{input: "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 5))", expected: "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 5)))"},
+            TestCase{input: "add(a + b + c * d / e - f + g)", expected: "add(((((a + b) + ((c * d) / e)) - f) + g))"},
         ];
 
         for test in tests {
