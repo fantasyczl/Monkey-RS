@@ -455,6 +455,39 @@ impl fmt::Display for FunctionLiteral {
     }
 }
 
+#[derive(Debug)]
+pub struct CallExpression {
+    pub token: Token,
+    pub function: Box<dyn Expression>,
+    pub arguments: Vec<Box<dyn Expression>>,
+}
+
+impl Node for CallExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Expression for CallExpression {
+    fn expression_node(&self) {}
+}
+
+impl fmt::Display for CallExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut out = String::new();
+        out.push_str(&self.function.to_string());
+        out.push_str("(");
+        for (i, arg) in self.arguments.iter().enumerate() {
+            out.push_str(&arg.to_string());
+            if i < self.arguments.len() - 1 {
+                out.push_str(", ");
+            }
+        }
+        out.push_str(")");
+        write!(f, "{}", out)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
