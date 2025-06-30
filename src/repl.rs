@@ -1,4 +1,5 @@
 use std::io::BufRead;
+use std::ptr::{with_exposed_provenance, write};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 
@@ -35,14 +36,31 @@ pub fn start_repl(input : &mut dyn std::io::Read, out: &mut dyn std::io::Write) 
     }
 }
 
+const MonkeyFace: &str = r#"
+            __,__
+   .--.  .-"     "-.  .--.
+  / .. \/  .-. .-.  \/ .. \
+ | |  '|  /   Y   \  |'  | |
+ | \   \  \ 0 | 0 /  /   / |
+  \ '- ,\.-"""""""-./, -' /
+   ''-' /_   ^ ^   _\ '-''
+       |  \._   _./  |
+       \   \ '~' /   /
+        '._ '-=-' _.'
+           '-----'
+"#;
+
 fn print_error(out: &mut dyn std::io::Write, errors: &Vec<String>) {
     if errors.is_empty() {
         return; // 如果没有错误，直接返回
     }
 
+    writeln!(out, "{}", MonkeyFace).unwrap();
+    writeln!(out, "Woops! We ran into some monkey business here!").unwrap();
+    writeln!(out, " parser errors:").unwrap();
+
     for msg in errors {
-        writeln!(out, "ERROR: {}", msg).unwrap();
+        writeln!(out, "\t{}", msg).unwrap();
     }
-    writeln!(out, "parser has {} error", errors.len()).unwrap();
     out.flush().unwrap();
 }
