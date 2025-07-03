@@ -36,7 +36,7 @@ pub fn start_repl(input : &mut dyn std::io::Read, out: &mut dyn std::io::Write) 
     }
 }
 
-const MonkeyFace: &str = r#"
+const MONKEY_FACE: &str = r#"
             __,__
    .--.  .-"     "-.  .--.
   / .. \/  .-. .-.  \/ .. \
@@ -55,7 +55,7 @@ fn print_error(out: &mut dyn std::io::Write, errors: &Vec<String>) {
         return; // 如果没有错误，直接返回
     }
 
-    writeln!(out, "{}", MonkeyFace).unwrap();
+    writeln!(out, "{}", MONKEY_FACE).unwrap();
     writeln!(out, "Woops! We ran into some monkey business here!").unwrap();
     writeln!(out, " parser errors:").unwrap();
 
