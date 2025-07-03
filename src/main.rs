@@ -3,6 +3,7 @@ pub mod lexer;
 pub mod repl;
 mod ast;
 mod parser;
+mod object;
 
 use crate::repl::start_repl;
 
