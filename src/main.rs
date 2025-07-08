@@ -4,6 +4,7 @@ pub mod repl;
 mod ast;
 mod parser;
 mod object;
+pub mod evaluator;
 
 use crate::repl::start_repl;
 

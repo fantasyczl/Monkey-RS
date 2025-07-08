@@ -11,8 +11,13 @@ pub trait Object {
 
     /// Returns a string representation of the object.
     fn inspect(&self) -> String;
+
+    fn as_integer(&self) -> Option<Integer> {
+        None
+    }
 }
 
+#[derive(Debug, Clone)]
 pub struct Integer {
     pub value: i64,
 }
@@ -24,6 +29,10 @@ impl Object for Integer {
 
     fn inspect(&self) -> String {
         self.value.to_string()
+    }
+
+    fn as_integer(&self) -> Option<Integer> {
+        Some(self.clone())
     }
 }
 
