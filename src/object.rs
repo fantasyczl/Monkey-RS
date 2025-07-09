@@ -15,6 +15,10 @@ pub trait Object {
     fn as_integer(&self) -> Option<Integer> {
         None
     }
+
+    fn as_boolean(&self) -> Option<Boolean> {
+        None
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -36,6 +40,7 @@ impl Object for Integer {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Boolean {
     pub value: bool,
 }
@@ -47,6 +52,10 @@ impl Object for Boolean {
 
     fn inspect(&self) -> String {
         self.value.to_string()
+    }
+
+    fn as_boolean(&self) -> Option<Boolean> {
+        Some(self.clone())
     }
 }
 

@@ -46,6 +46,7 @@ mod tests {
         let tests = vec![
             Case { input: "5", expected: 5 },
             Case { input: "10", expected: 10 },
+            // TODO
             // Case { input: "-3", expected: -3 },
             // Case { input: "100 + 200", expected: 300 },
             // Case { input: "50 - 20", expected: 30 },
@@ -74,5 +75,32 @@ mod tests {
         assert_eq!(object.type_name(), "Integer");
         let integer = object.as_integer().unwrap();
         assert_eq!(integer.value, expected);
+    }
+
+    #[test]
+    fn test_eval_boolean_expression() {
+        struct Case {
+            input: &'static str,
+            expected: bool,
+        }
+
+        let tests = vec![
+            Case { input: "true", expected: true },
+            Case { input: "false", expected: false },
+        ];
+
+        for test in tests {
+            let object = test_eval(test.input);
+            test_boolean_object(object, test.expected);
+        }
+    }
+
+    fn test_boolean_object(object: Option<Box<dyn Object>>, expected: bool) {
+        assert!(object.is_some(), "Expected an object, but got None");
+        let object = object.unwrap();
+
+        assert_eq!(object.type_name(), "Boolean");
+        let boolean = object.as_boolean().unwrap();
+        assert_eq!(boolean.value, expected);
     }
 }
