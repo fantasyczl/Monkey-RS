@@ -1,6 +1,7 @@
 use std::io::BufRead;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+use crate::evaluator;
 
 const PROMPT: &str = ">> ";
 
@@ -31,7 +32,13 @@ pub fn start_repl(input : &mut dyn std::io::Read, out: &mut dyn std::io::Write) 
             continue; // 如果解析出错，继续下一次循环
         }
 
-        writeln!(out, "{}", program.to_string()).unwrap();
+        if let Some(evaluated) = evaluator::eval(&program) {
+            if evaluated.type_name() == "Null" {
+                writeln!(out, "null").unwrap();
+            } else {
+                writeln!(out, "{}", evaluated.inspect()).unwrap();
+            }
+        }
     }
 }
 
