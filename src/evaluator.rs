@@ -1,4 +1,4 @@
-use crate::ast::{Boolean, Expression, ExpressionStatement, IntegerLiteral, Node, PrefixExpression, Statement};
+use crate::ast::{Boolean, ExpressionStatement, InfixExpression, IntegerLiteral, Node, PrefixExpression, Statement};
 use crate::object;
 use crate::object::Object;
 
@@ -18,11 +18,18 @@ pub fn eval(node: &dyn Node) ->  Option<Box<dyn Object>> {
             return eval(expr.as_ref());
         }
     } else if let Some(pre_expr) = node.as_any().downcast_ref::<PrefixExpression>() {
-        // TODO
         if let Some(right_node) = pre_expr.right.as_ref() {
             let right = eval(right_node.as_ref());
             return eval_prefix_expression(&pre_expr.operator, right);
         }
+    } else if let Some(infix_expr) = node.as_any().downcast_ref::<InfixExpression>() {
+        let left = eval(infix_expr.left.as_ref());
+        let right = eval(infix_expr.right.as_ref());
+        return eval_infix_expression(
+            &infix_expr.operator,
+            left,
+            right,
+        );
     }
 
     None
@@ -32,7 +39,6 @@ fn eval_statements(statements: &[Box<dyn Statement>]) -> Option<Box<dyn Object>>
     let mut object: Option<Box<dyn Object>> = None;
 
     for statement in statements {
-        // let node: dyn Node = statement as dyn Node;
         object = eval(statement.as_ref());
     }
 
@@ -81,8 +87,54 @@ fn eval_minus_operator_expression(
     if let Some(obj) = right {
         if let Some(i) = obj.as_integer() {
             return Some(Box::new(object::Integer { value: -i.value }));
-        } else if let Some(b) = obj.as_boolean() {
-            return Some(native_bool_to_boolean_object(!b.value));
+        }
+    }
+    None // TODO: Handle error for unsupported types
+}
+
+fn eval_infix_expression(
+    operator: &str,
+    left: Option<Box<dyn Object>>,
+    right: Option<Box<dyn Object>>,
+) -> Option<Box<dyn Object>> {
+    match operator {
+        "+" => eval_integer_infix_expression(left, right, |a, b| a + b),
+        "-" => eval_integer_infix_expression(left, right, |a, b| a - b),
+        "*" => eval_integer_infix_expression(left, right, |a, b| a * b),
+        "/" => eval_integer_infix_expression(left, right, |a, b| a / b),
+        "==" => eval_boolean_infix_expression(left, right, |a, b| a == b),
+        "!=" => eval_boolean_infix_expression(left, right, |a, b| a != b),
+        "<" => eval_boolean_infix_expression(left, right, |a, b| a < b),
+        ">" => eval_boolean_infix_expression(left, right, |a, b| a > b),
+        "<=" => eval_boolean_infix_expression(left, right, |a, b| a <= b),
+        ">=" => eval_boolean_infix_expression(left, right, |a, b| a >= b),
+        _ => None,
+    }
+}
+
+fn eval_integer_infix_expression(
+    left: Option<Box<dyn Object>>,
+    right: Option<Box<dyn Object>>,
+    op: fn(i64, i64) -> i64,
+) -> Option<Box<dyn Object>> {
+    if let (Some(left_obj), Some(right_obj)) = (left, right) {
+        if let (Some(left_int), Some(right_int)) = (left_obj.as_integer(), right_obj.as_integer()) {
+            return Some(Box::new(object::Integer { value: op(left_int.value, right_int.value) }));
+        }
+    }
+    None // TODO: Handle error for unsupported types
+}
+
+fn eval_boolean_infix_expression(
+    left: Option<Box<dyn Object>>,
+    right: Option<Box<dyn Object>>,
+    op: fn(bool, bool) -> bool,
+) -> Option<Box<dyn Object>> {
+    if let (Some(left_obj), Some(right_obj)) = (left, right) {
+        if let (Some(left_bool), Some(right_bool)) = (left_obj.as_boolean(), right_obj.as_boolean()) {
+            return Some(native_bool_to_boolean_object(op(left_bool.value, right_bool.value)));
+        } else if let (Some(left_int), Some(right_int)) = (left_obj.as_integer(), right_obj.as_integer()) {
+            return Some(native_bool_to_boolean_object(op(left_int.value != 0, right_int.value != 0)));
         }
     }
     None // TODO: Handle error for unsupported types
@@ -107,10 +159,16 @@ mod tests {
             Case { input: "5", expected: 5 },
             Case { input: "10", expected: 10 },
             Case { input: "-3", expected: -3 },
-            // Case { input: "100 + 200", expected: 300 },
-            // Case { input: "50 - 20", expected: 30 },
-            // Case { input: "2 * 3", expected: 6 },
-            // Case { input: "8 / 2", expected: 4 },
+            Case { input: "100 + 200", expected: 300 },
+            Case { input: "50 - 20", expected: 30 },
+            Case { input: "2 * 3", expected: 6 },
+            Case { input: "8 / 2", expected: 4 },
+            Case { input: "2 + 3 * 4", expected: 14 }, // Test operator precedence
+            Case { input: "(1 + 2) * 3", expected: 9 }, // Test parentheses
+            Case { input: "10 - (2 + 3)", expected: 5 }, // Test parentheses with subtraction
+            Case { input: "2 * (3 + 4)", expected: 14 }, // Test parentheses with multiplication
+            Case { input: "10 / (2 - 1)", expected: 10 }, // Test parentheses with division
+            Case { input: "5 + 3 - 2", expected: 6 }, // Test mixed operations
         ];
 
         for test in tests {
