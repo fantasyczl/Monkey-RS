@@ -1,5 +1,10 @@
-use crate::ast::{Boolean, Expression, ExpressionStatement, IntegerLiteral, Node, Statement};
+use crate::ast::{Boolean, Expression, ExpressionStatement, IntegerLiteral, Node, PrefixExpression, Statement};
+use crate::object;
 use crate::object::Object;
+
+const NULL_OBJ: &dyn Object = &object::Null;
+const TRUE_OBJ: &dyn Object = &object::Boolean { value: true };
+const FALSE_OBJ: &dyn Object = &object::Boolean { value: false };
 
 pub fn eval(node: &dyn Node) ->  Option<Box<dyn Object>> {
     if let Some(program) = node.as_program() {
@@ -7,10 +12,16 @@ pub fn eval(node: &dyn Node) ->  Option<Box<dyn Object>> {
     } else if let Some(integer_literal) = node.as_any().downcast_ref::<IntegerLiteral>() {
         return Some(Box::new(crate::object::Integer { value: integer_literal.value }));
     } else if let Some(boolean) = node.as_any().downcast_ref::<Boolean>() {
-        return Some(Box::new(crate::object::Boolean { value: boolean.value }));
+        return Some(native_bool_to_boolean_object(boolean.value));
     } else if let Some(expr) = node.as_any().downcast_ref::<ExpressionStatement>() {
         if let Some(expr) = expr.expression.as_ref() {
             return eval(expr.as_ref());
+        }
+    } else if let Some(pre_expr) = node.as_any().downcast_ref::<PrefixExpression>() {
+        // TODO
+        if let Some(right_node) = pre_expr.right.as_ref() {
+            let right = eval(right_node.as_ref());
+            return eval_prefix_expression(&pre_expr.operator, right);
         }
     }
 
@@ -26,6 +37,41 @@ fn eval_statements(statements: &[Box<dyn Statement>]) -> Option<Box<dyn Object>>
     }
 
     object
+}
+
+fn native_bool_to_boolean_object(input: bool) -> Box<dyn Object> {
+    if input {
+        Box::new(object::Boolean { value: true })
+    } else {
+        Box::new(object::Boolean { value: false })
+    }
+}
+
+fn eval_prefix_expression(
+    operator: &str,
+    right: Option<Box<dyn Object>>,
+) -> Option<Box<dyn Object>> {
+    match operator {
+        "!" => eval_bang_operator_expression(right),
+        _ => None, // TODO: Handle other operators
+    }
+}
+
+fn eval_bang_operator_expression(
+    right: Option<Box<dyn Object>>,
+) -> Option<Box<dyn Object>> {
+    match right {
+        None => return Some(native_bool_to_boolean_object(true)), // !null is true
+        Some(obj) => {
+            if let Some(b) = obj.as_boolean() {
+                return Some(native_bool_to_boolean_object(!b.value));
+            } else if let Some(i) = obj.as_integer() {
+                return Some(native_bool_to_boolean_object(i.value == 0));
+            } else {
+                None
+            }
+        }
+    }
 }
 
 
@@ -102,5 +148,27 @@ mod tests {
         assert_eq!(object.type_name(), "Boolean");
         let boolean = object.as_boolean().unwrap();
         assert_eq!(boolean.value, expected);
+    }
+
+    #[test]
+    fn test_eval_bang_operator() {
+        struct Case {
+            input: &'static str,
+            expected: bool,
+        }
+
+        let tests = vec![
+            Case { input: "!true", expected: false },
+            Case { input: "!false", expected: true },
+            Case { input: "!5", expected: false },
+            Case { input: "!!true", expected: true },
+            Case { input: "!!false", expected: false },
+            Case { input: "!!5", expected: true },
+        ];
+
+        for test in tests {
+            let object = test_eval(test.input);
+            test_boolean_object(object, test.expected);
+        }
     }
 }
