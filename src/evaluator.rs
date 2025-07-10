@@ -3,8 +3,8 @@ use crate::object;
 use crate::object::Object;
 
 const NULL_OBJ: &dyn Object = &object::Null;
-const TRUE_OBJ: &dyn Object = &object::Boolean { value: true };
-const FALSE_OBJ: &dyn Object = &object::Boolean { value: false };
+const TRUE: object::Boolean = object::Boolean { value: true };
+const FALSE: object::Boolean = object::Boolean { value: false };
 
 pub fn eval(node: &dyn Node) ->  Option<Box<dyn Object>> {
     if let Some(program) = node.as_program() {
@@ -47,9 +47,9 @@ fn eval_statements(statements: &[Box<dyn Statement>]) -> Option<Box<dyn Object>>
 
 fn native_bool_to_boolean_object(input: bool) -> Box<dyn Object> {
     if input {
-        Box::new(object::Boolean { value: true })
+        Box::new(TRUE)
     } else {
-        Box::new(object::Boolean { value: false })
+        Box::new(FALSE)
     }
 }
 
@@ -89,7 +89,7 @@ fn eval_minus_operator_expression(
             return Some(Box::new(object::Integer { value: -i.value }));
         }
     }
-    None // TODO: Handle error for unsupported types
+    None
 }
 
 fn eval_infix_expression(
@@ -122,22 +122,20 @@ fn eval_integer_infix_expression(
             return Some(Box::new(object::Integer { value: op(left_int.value, right_int.value) }));
         }
     }
-    None // TODO: Handle error for unsupported types
+    None
 }
 
 fn eval_boolean_infix_expression(
     left: Option<Box<dyn Object>>,
     right: Option<Box<dyn Object>>,
-    op: fn(bool, bool) -> bool,
+    op: fn(i64, i64) -> bool,
 ) -> Option<Box<dyn Object>> {
     if let (Some(left_obj), Some(right_obj)) = (left, right) {
-        if let (Some(left_bool), Some(right_bool)) = (left_obj.as_boolean(), right_obj.as_boolean()) {
-            return Some(native_bool_to_boolean_object(op(left_bool.value, right_bool.value)));
-        } else if let (Some(left_int), Some(right_int)) = (left_obj.as_integer(), right_obj.as_integer()) {
-            return Some(native_bool_to_boolean_object(op(left_int.value != 0, right_int.value != 0)));
+        if let (Some(left_int), Some(right_int)) = (left_obj.as_integer(), right_obj.as_integer()) {
+            return Some(native_bool_to_boolean_object(op(left_int.value, right_int.value)));
         }
     }
-    None // TODO: Handle error for unsupported types
+    None
 }
 
 
@@ -204,9 +202,14 @@ mod tests {
         let tests = vec![
             Case { input: "true", expected: true },
             Case { input: "false", expected: false },
+            Case { input: "5 == 5", expected: true },
+            Case { input: "5 != 10", expected: true },
+            Case { input: "5 < 10", expected: true },
+            Case { input: "10 > 5", expected: true },
         ];
 
         for test in tests {
+            println!("Testing input: {}", test.input);
             let object = test_eval(test.input);
             test_boolean_object(object, test.expected);
         }
@@ -238,6 +241,7 @@ mod tests {
         ];
 
         for test in tests {
+            print!("Testing input: {}", test.input);
             let object = test_eval(test.input);
             test_boolean_object(object, test.expected);
         }
