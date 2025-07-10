@@ -53,6 +53,7 @@ fn eval_prefix_expression(
 ) -> Option<Box<dyn Object>> {
     match operator {
         "!" => eval_bang_operator_expression(right),
+        "-" => eval_minus_operator_expression(right),
         _ => None, // TODO: Handle other operators
     }
 }
@@ -74,6 +75,19 @@ fn eval_bang_operator_expression(
     }
 }
 
+fn eval_minus_operator_expression(
+    right: Option<Box<dyn Object>>,
+) -> Option<Box<dyn Object>> {
+    if let Some(obj) = right {
+        if let Some(i) = obj.as_integer() {
+            return Some(Box::new(object::Integer { value: -i.value }));
+        } else if let Some(b) = obj.as_boolean() {
+            return Some(native_bool_to_boolean_object(!b.value));
+        }
+    }
+    None // TODO: Handle error for unsupported types
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -92,8 +106,7 @@ mod tests {
         let tests = vec![
             Case { input: "5", expected: 5 },
             Case { input: "10", expected: 10 },
-            // TODO
-            // Case { input: "-3", expected: -3 },
+            Case { input: "-3", expected: -3 },
             // Case { input: "100 + 200", expected: 300 },
             // Case { input: "50 - 20", expected: 30 },
             // Case { input: "2 * 3", expected: 6 },
