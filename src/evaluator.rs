@@ -5,7 +5,7 @@ use crate::ast::{
 use crate::object;
 use crate::object::Object;
 
-// const NULL_OBJ: &dyn Object = &object::Null;
+const NULL_OBJ: object::Null = object::Null;
 const TRUE: object::Boolean = object::Boolean { value: true };
 const FALSE: object::Boolean = object::Boolean { value: false };
 
@@ -31,9 +31,13 @@ pub fn eval(node: &dyn Node) -> Option<Box<dyn Object>> {
         let left = eval(infix_expr.left.as_ref());
         let right = eval(infix_expr.right.as_ref());
         return eval_infix_expression(&infix_expr.operator, left, right);
+    } else if let Some(if_expr) = node.as_any().downcast_ref::<crate::ast::IfExpression>() {
+        return eval_if_expression(if_expr);
+    } else if let Some(block_stmt) = node.as_any().downcast_ref::<crate::ast::BlockStatement>() {
+        return eval_statements(&block_stmt.statements)
     }
 
-    None
+    Some(Box::new(NULL_OBJ))
 }
 
 fn eval_statements(statements: &[Box<dyn Statement>]) -> Option<Box<dyn Object>> {
@@ -148,6 +152,36 @@ fn eval_boolean_infix_expression(
         }
     }
     None
+}
+
+fn eval_if_expression(
+    ie : &crate::ast::IfExpression,
+) -> Option<Box<dyn Object>> {
+    let condition = eval(ie.condition.as_ref());
+
+    if let Some(cond_obj) = condition {
+        if if_truthy(&*cond_obj) {
+            return eval(&ie.consequence);
+        } else if let Some(alternative) = &ie.alternative {
+            return eval(alternative);
+        } else {
+            return Some(Box::new(NULL_OBJ));
+        }
+    }
+
+    None
+}
+
+fn if_truthy(obj: &dyn Object) -> bool {
+    if let Some(boolean) = obj.as_boolean() {
+        boolean.value
+    } else if let Some(integer) = obj.as_integer() {
+        integer.value != 0
+    } else if obj.type_name() == NULL_OBJ.type_name() {
+        false
+    } else {
+        true
+    }
 }
 
 #[cfg(test)]
@@ -363,5 +397,50 @@ mod tests {
             let object = test_eval(test.input);
             test_boolean_object(object, test.expected);
         }
+    }
+
+    #[test]
+    fn test_eval_if_expression() {
+        struct Case {
+            input: &'static str,
+            expected: Option<i64>,
+        }
+
+        let tests = vec![
+            Case {
+                input: "if (true) { 10 }",
+                expected: Some(10),
+            },
+            Case {
+                input: "if (false) { 10 }",
+                expected: None,
+            },
+            Case {
+                input: "if (1 < 2) { 20 } else { 30 }",
+                expected: Some(20),
+            },
+            Case {
+                input: "if (1 > 2) { 20 } else { 30 }",
+                expected: Some(30),
+            },
+        ];
+
+        for test in tests {
+            println!("Testing input: {}", test.input);
+            let object = test_eval(test.input);
+            if let Some(obj) = object {
+                if let Some(integer) = obj.as_integer() {
+                    assert_eq!(integer.value, test.expected.unwrap());
+                } else {
+                    test_null_object(&obj);
+                }
+            } else {
+                assert!(test.expected.is_none(), "Expected an object, but got None");
+            }
+        }
+    }
+
+    fn test_null_object(object: &Box<dyn Object>) {
+        assert_eq!(object.type_name(), "Null");
     }
 }
