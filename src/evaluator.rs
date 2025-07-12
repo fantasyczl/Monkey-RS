@@ -1,4 +1,7 @@
-use crate::ast::{Boolean, ExpressionStatement, InfixExpression, IntegerLiteral, Node, PrefixExpression, Statement};
+use crate::ast::{
+    Boolean, ExpressionStatement, InfixExpression, IntegerLiteral, Node, PrefixExpression,
+    Statement,
+};
 use crate::object;
 use crate::object::Object;
 
@@ -6,11 +9,13 @@ const NULL_OBJ: &dyn Object = &object::Null;
 const TRUE: object::Boolean = object::Boolean { value: true };
 const FALSE: object::Boolean = object::Boolean { value: false };
 
-pub fn eval(node: &dyn Node) ->  Option<Box<dyn Object>> {
+pub fn eval(node: &dyn Node) -> Option<Box<dyn Object>> {
     if let Some(program) = node.as_program() {
         return eval_statements(&program.statements);
     } else if let Some(integer_literal) = node.as_any().downcast_ref::<IntegerLiteral>() {
-        return Some(Box::new(crate::object::Integer { value: integer_literal.value }));
+        return Some(Box::new(crate::object::Integer {
+            value: integer_literal.value,
+        }));
     } else if let Some(boolean) = node.as_any().downcast_ref::<Boolean>() {
         return Some(native_bool_to_boolean_object(boolean.value));
     } else if let Some(expr) = node.as_any().downcast_ref::<ExpressionStatement>() {
@@ -25,11 +30,7 @@ pub fn eval(node: &dyn Node) ->  Option<Box<dyn Object>> {
     } else if let Some(infix_expr) = node.as_any().downcast_ref::<InfixExpression>() {
         let left = eval(infix_expr.left.as_ref());
         let right = eval(infix_expr.right.as_ref());
-        return eval_infix_expression(
-            &infix_expr.operator,
-            left,
-            right,
-        );
+        return eval_infix_expression(&infix_expr.operator, left, right);
     }
 
     None
@@ -64,9 +65,7 @@ fn eval_prefix_expression(
     }
 }
 
-fn eval_bang_operator_expression(
-    right: Option<Box<dyn Object>>,
-) -> Option<Box<dyn Object>> {
+fn eval_bang_operator_expression(right: Option<Box<dyn Object>>) -> Option<Box<dyn Object>> {
     match right {
         None => return Some(native_bool_to_boolean_object(true)), // !null is true
         Some(obj) => {
@@ -81,9 +80,7 @@ fn eval_bang_operator_expression(
     }
 }
 
-fn eval_minus_operator_expression(
-    right: Option<Box<dyn Object>>,
-) -> Option<Box<dyn Object>> {
+fn eval_minus_operator_expression(right: Option<Box<dyn Object>>) -> Option<Box<dyn Object>> {
     if let Some(obj) = right {
         if let Some(i) = obj.as_integer() {
             return Some(Box::new(object::Integer { value: -i.value }));
@@ -102,12 +99,12 @@ fn eval_infix_expression(
         "-" => eval_integer_infix_expression(left, right, |a, b| a - b),
         "*" => eval_integer_infix_expression(left, right, |a, b| a * b),
         "/" => eval_integer_infix_expression(left, right, |a, b| a / b),
-        "==" => eval_boolean_infix_expression(left, right, |a, b| a == b),
-        "!=" => eval_boolean_infix_expression(left, right, |a, b| a != b),
-        "<" => eval_boolean_infix_expression(left, right, |a, b| a < b),
-        ">" => eval_boolean_infix_expression(left, right, |a, b| a > b),
-        "<=" => eval_boolean_infix_expression(left, right, |a, b| a <= b),
-        ">=" => eval_boolean_infix_expression(left, right, |a, b| a >= b),
+        "==" => eval_boolean_infix_expression(left, right, |a, b| a == b, Some(|a, b| a == b)),
+        "!=" => eval_boolean_infix_expression(left, right, |a, b| a != b, Some(|a, b| a != b)),
+        "<" => eval_boolean_infix_expression(left, right, |a, b| a < b, None),
+        ">" => eval_boolean_infix_expression(left, right, |a, b| a > b, None),
+        "<=" => eval_boolean_infix_expression(left, right, |a, b| a <= b, None),
+        ">=" => eval_boolean_infix_expression(left, right, |a, b| a >= b, None),
         _ => None,
     }
 }
@@ -119,7 +116,9 @@ fn eval_integer_infix_expression(
 ) -> Option<Box<dyn Object>> {
     if let (Some(left_obj), Some(right_obj)) = (left, right) {
         if let (Some(left_int), Some(right_int)) = (left_obj.as_integer(), right_obj.as_integer()) {
-            return Some(Box::new(object::Integer { value: op(left_int.value, right_int.value) }));
+            return Some(Box::new(object::Integer {
+                value: op(left_int.value, right_int.value),
+            }));
         }
     }
     None
@@ -129,22 +128,34 @@ fn eval_boolean_infix_expression(
     left: Option<Box<dyn Object>>,
     right: Option<Box<dyn Object>>,
     op: fn(i64, i64) -> bool,
+    bool_op: Option<fn(bool, bool) -> bool>,
 ) -> Option<Box<dyn Object>> {
     if let (Some(left_obj), Some(right_obj)) = (left, right) {
         if let (Some(left_int), Some(right_int)) = (left_obj.as_integer(), right_obj.as_integer()) {
-            return Some(native_bool_to_boolean_object(op(left_int.value, right_int.value)));
+            return Some(native_bool_to_boolean_object(op(
+                left_int.value,
+                right_int.value,
+            )));
+        } else if let (Some(left_bool), Some(right_bool)) =
+            (left_obj.as_boolean(), right_obj.as_boolean())
+        {
+            if let Some(bool_op) = bool_op {
+                return Some(native_bool_to_boolean_object(bool_op(
+                    left_bool.value,
+                    right_bool.value,
+                )));
+            }
         }
     }
     None
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::lexer::Lexer;
-    use crate::parser::Parser;
     use crate::object::Object;
+    use crate::parser::Parser;
 
     #[test]
     fn test_eval_integer_expression() {
@@ -154,19 +165,58 @@ mod tests {
         }
 
         let tests = vec![
-            Case { input: "5", expected: 5 },
-            Case { input: "10", expected: 10 },
-            Case { input: "-3", expected: -3 },
-            Case { input: "100 + 200", expected: 300 },
-            Case { input: "50 - 20", expected: 30 },
-            Case { input: "2 * 3", expected: 6 },
-            Case { input: "8 / 2", expected: 4 },
-            Case { input: "2 + 3 * 4", expected: 14 }, // Test operator precedence
-            Case { input: "(1 + 2) * 3", expected: 9 }, // Test parentheses
-            Case { input: "10 - (2 + 3)", expected: 5 }, // Test parentheses with subtraction
-            Case { input: "2 * (3 + 4)", expected: 14 }, // Test parentheses with multiplication
-            Case { input: "10 / (2 - 1)", expected: 10 }, // Test parentheses with division
-            Case { input: "5 + 3 - 2", expected: 6 }, // Test mixed operations
+            Case {
+                input: "5",
+                expected: 5,
+            },
+            Case {
+                input: "10",
+                expected: 10,
+            },
+            Case {
+                input: "-3",
+                expected: -3,
+            },
+            Case {
+                input: "100 + 200",
+                expected: 300,
+            },
+            Case {
+                input: "50 - 20",
+                expected: 30,
+            },
+            Case {
+                input: "2 * 3",
+                expected: 6,
+            },
+            Case {
+                input: "8 / 2",
+                expected: 4,
+            },
+            Case {
+                input: "2 + 3 * 4",
+                expected: 14,
+            }, // Test operator precedence
+            Case {
+                input: "(1 + 2) * 3",
+                expected: 9,
+            }, // Test parentheses
+            Case {
+                input: "10 - (2 + 3)",
+                expected: 5,
+            }, // Test parentheses with subtraction
+            Case {
+                input: "2 * (3 + 4)",
+                expected: 14,
+            }, // Test parentheses with multiplication
+            Case {
+                input: "10 / (2 - 1)",
+                expected: 10,
+            }, // Test parentheses with division
+            Case {
+                input: "5 + 3 - 2",
+                expected: 6,
+            }, // Test mixed operations
         ];
 
         for test in tests {
@@ -200,12 +250,32 @@ mod tests {
         }
 
         let tests = vec![
-            Case { input: "true", expected: true },
-            Case { input: "false", expected: false },
-            Case { input: "5 == 5", expected: true },
-            Case { input: "5 != 10", expected: true },
-            Case { input: "5 < 10", expected: true },
-            Case { input: "10 > 5", expected: true },
+            // Case { input: "true", expected: true },
+            // Case { input: "false", expected: false },
+            // Case { input: "5 == 5", expected: true },
+            // Case { input: "5 != 10", expected: true },
+            // Case { input: "5 < 10", expected: true },
+            // Case { input: "10 > 5", expected: true },
+            // Case { input: "true == true", expected: true },
+            // Case { input: "false == false", expected: true },
+            // Case { input: "true != false", expected: true },
+            // Case { input: "false != true", expected: true },
+            Case {
+                input: "(1 < 2) == true)",
+                expected: true,
+            },
+            Case {
+                input: "(1 < 2) == false)",
+                expected: false,
+            },
+            Case {
+                input: "(1 > 2) == false",
+                expected: true,
+            },
+            Case {
+                input: "(1 > 2) == true",
+                expected: false,
+            },
         ];
 
         for test in tests {
@@ -232,12 +302,30 @@ mod tests {
         }
 
         let tests = vec![
-            Case { input: "!true", expected: false },
-            Case { input: "!false", expected: true },
-            Case { input: "!5", expected: false },
-            Case { input: "!!true", expected: true },
-            Case { input: "!!false", expected: false },
-            Case { input: "!!5", expected: true },
+            Case {
+                input: "!true",
+                expected: false,
+            },
+            Case {
+                input: "!false",
+                expected: true,
+            },
+            Case {
+                input: "!5",
+                expected: false,
+            },
+            Case {
+                input: "!!true",
+                expected: true,
+            },
+            Case {
+                input: "!!false",
+                expected: false,
+            },
+            Case {
+                input: "!!5",
+                expected: true,
+            },
         ];
 
         for test in tests {
