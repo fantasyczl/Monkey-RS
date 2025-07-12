@@ -5,7 +5,7 @@ use crate::ast::{
 use crate::object;
 use crate::object::Object;
 
-const NULL_OBJ: &dyn Object = &object::Null;
+// const NULL_OBJ: &dyn Object = &object::Null;
 const TRUE: object::Boolean = object::Boolean { value: true };
 const FALSE: object::Boolean = object::Boolean { value: false };
 
@@ -250,22 +250,52 @@ mod tests {
         }
 
         let tests = vec![
-            // Case { input: "true", expected: true },
-            // Case { input: "false", expected: false },
-            // Case { input: "5 == 5", expected: true },
-            // Case { input: "5 != 10", expected: true },
-            // Case { input: "5 < 10", expected: true },
-            // Case { input: "10 > 5", expected: true },
-            // Case { input: "true == true", expected: true },
-            // Case { input: "false == false", expected: true },
-            // Case { input: "true != false", expected: true },
-            // Case { input: "false != true", expected: true },
             Case {
-                input: "(1 < 2) == true)",
+                input: "true",
                 expected: true,
             },
             Case {
-                input: "(1 < 2) == false)",
+                input: "false",
+                expected: false,
+            },
+            Case {
+                input: "5 == 5",
+                expected: true,
+            },
+            Case {
+                input: "5 != 10",
+                expected: true,
+            },
+            Case {
+                input: "5 < 10",
+                expected: true,
+            },
+            Case {
+                input: "10 > 5",
+                expected: true,
+            },
+            Case {
+                input: "true == true",
+                expected: true,
+            },
+            Case {
+                input: "false == false",
+                expected: true,
+            },
+            Case {
+                input: "true != false",
+                expected: true,
+            },
+            Case {
+                input: "false != true",
+                expected: true,
+            },
+            Case {
+                input: "(1 < 2) == true",
+                expected: true,
+            },
+            Case {
+                input: "(1 < 2) == false",
                 expected: false,
             },
             Case {
