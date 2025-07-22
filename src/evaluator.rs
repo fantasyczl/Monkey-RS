@@ -33,11 +33,23 @@ pub fn eval(node: &dyn Node) -> Option<Box<dyn Object>> {
     } else if let Some(pre_expr) = node.as_any().downcast_ref::<PrefixExpression>() {
         if let Some(right_node) = pre_expr.right.as_ref() {
             let right = eval(right_node.as_ref());
+            if is_error(&right) {
+                return right;
+            }
+
             return eval_prefix_expression(&pre_expr.operator, right);
         }
     } else if let Some(infix_expr) = node.as_any().downcast_ref::<InfixExpression>() {
         let left = eval(infix_expr.left.as_ref());
+        if is_error(&left) {
+            return left;
+        }
+
         let right = eval(infix_expr.right.as_ref());
+        if is_error(&right) {
+            return right;
+        }
+
         return eval_infix_expression(&infix_expr.operator, left, right);
     } else if let Some(if_expr) = node.as_any().downcast_ref::<crate::ast::IfExpression>() {
         return eval_if_expression(if_expr);
@@ -46,13 +58,26 @@ pub fn eval(node: &dyn Node) -> Option<Box<dyn Object>> {
     } else if let Some(return_stmt) = node.as_any().downcast_ref::<crate::ast::ReturnStatement>() {
         if let Some(expr) = return_stmt.return_value.as_ref() {
             let value = eval(expr.as_ref());
-            if let Some(value) = value {
-                return Some(Box::new(object::ReturnValue { value }));
+            if is_error(&value) {
+                return value;
+            }
+
+            if let Some(value_obj) = value {
+                return Some(Box::new(object::ReturnValue { value: value_obj }));
             }
         }
     }
 
     Some(Box::new(NULL_OBJ))
+}
+
+fn is_error(obj: &Option<Box<dyn Object>>) -> bool {
+    match obj {
+        None => false,
+        Some(obj) => {
+            obj.as_error().is_some()
+        }
+    }
 }
 
 fn eval_program(statements: &[Box<dyn Statement>]) -> Option<Box<dyn Object>> {
@@ -62,9 +87,9 @@ fn eval_program(statements: &[Box<dyn Statement>]) -> Option<Box<dyn Object>> {
         object = eval(statement.as_ref());
 
         if let Some(object_t) = object.as_ref() {
-            if let Some(return_val) = object_t.as_return_value() {
-                return Some(return_val.value.clone());
-            } else if let Some(obj_err) = object_t.as_error() {
+            if object_t.as_return_value().is_some() {
+                return object;
+            } else if object_t.as_error().is_some() {
                 return object;
             }
         }
@@ -185,22 +210,6 @@ fn check_type_mismatch(
     ))
 }
 
-fn check_type_int(
-    left: Option<Box<dyn Object>>,
-    right: Option<Box<dyn Object>>,
-) -> Option<Box<dyn Object>> {
-    if let (Some(left_obj), Some(right_obj)) = (left, right) {
-        if left_obj.type_name() != object::INTEGER_OBJ || right_obj.type_name() != object::INTEGER_OBJ {
-            return Some(new_error!(
-                "Type mismatch: {} and {}",
-                left_obj.type_name(),
-                right_obj.type_name()
-            ));
-        }
-    }
-    None
-}
-
 fn eval_integer_infix_expression(
     left: Option<Box<dyn Object>>,
     right: Option<Box<dyn Object>>,
@@ -246,6 +255,13 @@ fn eval_boolean_infix_expression(
                     right_bool.value,
                 )));
             }
+        } else {
+            return Some(new_error!(
+                "Type mismatch: {} {} {}",
+                left_obj.type_name(),
+                operator,
+                right_obj.type_name()
+            ));
         }
     }
     None
@@ -253,6 +269,9 @@ fn eval_boolean_infix_expression(
 
 fn eval_if_expression(ie: &crate::ast::IfExpression) -> Option<Box<dyn Object>> {
     let condition = eval(ie.condition.as_ref());
+    if is_error(&condition) {
+        return condition;
+    }
 
     if let Some(cond_obj) = condition {
         if if_truthy(&*cond_obj) {
