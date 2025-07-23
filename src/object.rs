@@ -144,3 +144,29 @@ impl Object for Error {
         Some(self)
     }
 }
+
+pub struct Environment {
+    pub store: std::collections::HashMap<String, Box<dyn Object>>,
+}
+
+impl Environment {
+    pub fn new() -> Box<Self> {
+        let env = Environment {
+            store: std::collections::HashMap::new(),
+        };
+
+        Box::new(env)
+    }
+
+    pub fn set(&mut self, name: String, value: Box<dyn Object>) {
+        self.store.insert(name, value);
+    }
+
+    pub fn get(&self, name: &str) -> Option<&Box<dyn Object>> {
+        self.store.get(name)
+    }
+
+    pub fn remove(&mut self, name: &str) -> Option<Box<dyn Object>> {
+        self.store.remove(name)
+    }
+}

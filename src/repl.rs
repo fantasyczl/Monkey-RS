@@ -1,12 +1,13 @@
 use std::io::BufRead;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use crate::evaluator;
+use crate::{evaluator, object};
 
 const PROMPT: &str = ">> ";
 
 pub fn start_repl(input : &mut dyn std::io::Read, out: &mut dyn std::io::Write) {
     let mut scanner = std::io::BufReader::new(input);
+    let env = &mut object::Environment::new();
 
     loop {
         out.write_fmt(format_args!("{}", PROMPT)).unwrap();
@@ -32,7 +33,7 @@ pub fn start_repl(input : &mut dyn std::io::Read, out: &mut dyn std::io::Write) 
             continue; // 如果解析出错，继续下一次循环
         }
 
-        if let Some(evaluated) = evaluator::eval(&program) {
+        if let Some(evaluated) = evaluator::eval(&program, env) {
             if evaluated.type_name() == "Null" {
                 writeln!(out, "null").unwrap();
             } else {

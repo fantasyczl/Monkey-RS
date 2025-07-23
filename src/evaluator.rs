@@ -17,7 +17,7 @@ macro_rules! new_error {
     };
 }
 
-pub fn eval(node: &dyn Node) -> Option<Box<dyn Object>> {
+pub fn eval(node: &dyn Node, env: &mut object::Environment) -> Option<Box<dyn Object>> {
     if let Some(program) = node.as_program() {
         return eval_program(&program.statements);
     } else if let Some(integer_literal) = node.as_any().downcast_ref::<IntegerLiteral>() {
@@ -28,11 +28,11 @@ pub fn eval(node: &dyn Node) -> Option<Box<dyn Object>> {
         return Some(native_bool_to_boolean_object(boolean.value));
     } else if let Some(expr) = node.as_any().downcast_ref::<ExpressionStatement>() {
         if let Some(expr) = expr.expression.as_ref() {
-            return eval(expr.as_ref());
+            return eval(expr.as_ref(), env);
         }
     } else if let Some(pre_expr) = node.as_any().downcast_ref::<PrefixExpression>() {
         if let Some(right_node) = pre_expr.right.as_ref() {
-            let right = eval(right_node.as_ref());
+            let right = eval(right_node.as_ref(), env);
             if is_error(&right) {
                 return right;
             }
@@ -40,12 +40,12 @@ pub fn eval(node: &dyn Node) -> Option<Box<dyn Object>> {
             return eval_prefix_expression(&pre_expr.operator, right);
         }
     } else if let Some(infix_expr) = node.as_any().downcast_ref::<InfixExpression>() {
-        let left = eval(infix_expr.left.as_ref());
+        let left = eval(infix_expr.left.as_ref(), env);
         if is_error(&left) {
             return left;
         }
 
-        let right = eval(infix_expr.right.as_ref());
+        let right = eval(infix_expr.right.as_ref(), env);
         if is_error(&right) {
             return right;
         }
@@ -57,7 +57,7 @@ pub fn eval(node: &dyn Node) -> Option<Box<dyn Object>> {
         return eval_block_statements(&block_stmt.statements);
     } else if let Some(return_stmt) = node.as_any().downcast_ref::<crate::ast::ReturnStatement>() {
         if let Some(expr) = return_stmt.return_value.as_ref() {
-            let value = eval(expr.as_ref());
+            let value = eval(expr.as_ref(), env);
             if is_error(&value) {
                 return value;
             }
@@ -66,6 +66,18 @@ pub fn eval(node: &dyn Node) -> Option<Box<dyn Object>> {
                 return Some(Box::new(object::ReturnValue { value: value_obj }));
             }
         }
+    } else if let Some(let_stmt) = node.as_any().downcast_ref::<crate::ast::LetStatement>() {
+        let val_node = let_stmt.value.as_ref();
+        let val = eval(val_node, env);
+        if is_error(&val) {
+            return val;
+        }
+
+        if let Some(value) = val {
+            env.set(let_stmt.name.value.clone(), value);
+        }
+    } else if let Some(identifier) = node.as_any().downcast_ref::<crate::ast::Identifier>() {
+        return eval_identifier(identifier, env);
     }
 
     Some(Box::new(NULL_OBJ))
@@ -83,12 +95,14 @@ fn is_error(obj: &Option<Box<dyn Object>>) -> bool {
 fn eval_program(statements: &[Box<dyn Statement>]) -> Option<Box<dyn Object>> {
     let mut object: Option<Box<dyn Object>> = None;
 
+    let env = &mut object::Environment::new();
+
     for statement in statements {
-        object = eval(statement.as_ref());
+        object = eval(statement.as_ref(), env);
 
         if let Some(object_t) = object.as_ref() {
-            if object_t.as_return_value().is_some() {
-                return object;
+            if let Some(return_val) = object_t.as_return_value() {
+                return Some(return_val.value.clone());
             } else if object_t.as_error().is_some() {
                 return object;
             }
@@ -101,8 +115,10 @@ fn eval_program(statements: &[Box<dyn Statement>]) -> Option<Box<dyn Object>> {
 fn eval_block_statements(statements: &[Box<dyn Statement>]) -> Option<Box<dyn Object>> {
     let mut result: Option<Box<dyn Object>> = None;
 
+    let env = &mut object::Environment::new();
+
     for statement in statements {
-        result = eval(statement.as_ref());
+        result = eval(statement.as_ref(), env);
         if let Some(object) = result.as_ref() {
             if object.type_name() == object::RETURN_VALUE_OBJ {
                 return result;
@@ -268,16 +284,17 @@ fn eval_boolean_infix_expression(
 }
 
 fn eval_if_expression(ie: &crate::ast::IfExpression) -> Option<Box<dyn Object>> {
-    let condition = eval(ie.condition.as_ref());
+    let env = &mut object::Environment::new();
+    let condition = eval(ie.condition.as_ref(), env);
     if is_error(&condition) {
         return condition;
     }
 
     if let Some(cond_obj) = condition {
         if if_truthy(&*cond_obj) {
-            return eval(&ie.consequence);
+            return eval(&ie.consequence, env);
         } else if let Some(alternative) = &ie.alternative {
-            return eval(alternative);
+            return eval(alternative, env);
         } else {
             return Some(Box::new(NULL_OBJ));
         }
@@ -295,6 +312,17 @@ fn if_truthy(obj: &dyn Object) -> bool {
         false
     } else {
         true
+    }
+}
+
+fn eval_identifier(
+    identifier: &crate::ast::Identifier,
+    env: &mut object::Environment,
+) -> Option<Box<dyn Object>> {
+    if let Some(value) = env.get(&identifier.value) {
+        Some(value.clone_box())
+    } else {
+        Some(new_error!("identifier not found: {}", identifier.value))
     }
 }
 
@@ -377,8 +405,9 @@ mod tests {
         let mut l = Lexer::new(input);
         let mut p = Parser::new(&mut l);
         let program = p.parse_program();
+        let env = &mut object::Environment::new();
 
-        eval(&program)
+        eval(&program, env)
     }
 
     fn test_integer_object(object: Option<Box<dyn Object>>, expected: i64) {
@@ -644,6 +673,10 @@ mod tests {
                 input: "if (10 > 1) { return true + false; } else { return 10; }",
                 expected_error: "Type mismatch: Boolean + Boolean",
             },
+            Case {
+                input: "foobar",
+                expected_error: "identifier not found: foobar",
+            },
         ];
 
         for test in tests {
@@ -668,6 +701,39 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_let_statements() {
+        struct Case {
+            input: &'static str,
+            expected: i64,
+        }
+
+        let tests = vec![
+            Case {
+                input: "let x = 5; x;",
+                expected: 5,
+            },
+            Case {
+                input: "let y = 10; y + 5;",
+                expected: 15,
+            },
+            Case {
+                input: "let z = 20; z - 5;",
+                expected: 15,
+            },
+            Case {
+                input: "let a = 1; let b = 2; a + b;",
+                expected: 3,
+            },
+        ];
+
+        for test in tests {
+            println!("Testing input: {}", test.input);
+            let object = test_eval(test.input);
+            test_integer_object(object, test.expected);
         }
     }
 }
