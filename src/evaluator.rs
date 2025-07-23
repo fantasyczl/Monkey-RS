@@ -595,39 +595,38 @@ mod tests {
         }
 
         let tests = vec![
-            // Case {
-            //     input: "return 10;",
-            //     expected: Some(10),
-            // },
-            // Case {
-            //     input: "return 10;9;",
-            //     expected: Some(10),
-            // },
-            // Case {
-            //     input: "return 20; return 30;",
-            //     expected: Some(20),
-            // },
-            // Case {
-            //     input: "if (true) { return 40; }",
-            //     expected: Some(40),
-            // },
-            // Case {
-            //     input: "if (false) { return 50; } else { return 60; }",
-            //     expected: Some(60),
-            // },
-            // Case {
-            //     input: "9; return 2 * 5; 10;",
-            //     expected: Some(10),
-            // },
-            // TODO: Fix the return statement tests
+            Case {
+                input: "return 10;",
+                expected: Some(10),
+            },
+            Case {
+                input: "return 10;9;",
+                expected: Some(10),
+            },
+            Case {
+                input: "return 20; return 30;",
+                expected: Some(20),
+            },
+            Case {
+                input: "if (true) { return 40; }",
+                expected: Some(40),
+            },
+            Case {
+                input: "if (false) { return 50; } else { return 60; }",
+                expected: Some(60),
+            },
+            Case {
+                input: "9; return 2 * 5; 10;",
+                expected: Some(10),
+            },
             Case {
                 input: "let x = 5; return x;",
                 expected: Some(5),
             },
-            // Case {
-            //     input: "if (10 > 1) { if (true) { return 15; } return 1; } else { return 20; }",
-            //     expected: Some(15),
-            // },
+            Case {
+                input: "if (10 > 1) { if (true) { return 15; } return 1; } else { return 20; }",
+                expected: Some(15),
+            },
         ];
 
         for test in tests {
