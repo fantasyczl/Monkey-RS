@@ -3,7 +3,9 @@ use crate::ast::{
     Statement,
 };
 use crate::object;
-use crate::object::{Object};
+use crate::object::{Environment, Object};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 const NULL_OBJ: object::Null = object::Null;
 const TRUE: object::Boolean = object::Boolean { value: true };
@@ -17,7 +19,10 @@ macro_rules! new_error {
     };
 }
 
-pub fn eval(node: &dyn Node, env: &mut object::Environment) -> Option<Box<dyn Object>> {
+pub fn eval(
+    node: &dyn Node,
+    env: &mut Rc<RefCell<object::Environment>>,
+) -> Option<Box<dyn Object>> {
     if let Some(program) = node.as_program() {
         return eval_program(&program.statements, env);
     } else if let Some(integer_literal) = node.as_any().downcast_ref::<IntegerLiteral>() {
@@ -57,17 +62,29 @@ pub fn eval(node: &dyn Node, env: &mut object::Environment) -> Option<Box<dyn Ob
             }
         }
     } else if let Some(let_stmt) = node.as_any().downcast_ref::<crate::ast::LetStatement>() {
-        return eval_let_statement(let_stmt, env)
+        return eval_let_statement(let_stmt, env);
     } else if let Some(identifier) = node.as_any().downcast_ref::<crate::ast::Identifier>() {
         return eval_identifier(identifier, env);
     } else if let Some(func_node) = node.as_any().downcast_ref::<crate::ast::FunctionLiteral>() {
         let func_obj = object::Function::new(
             func_node.parameters.clone(),
             Box::new(func_node.body.clone()),
-            Box::new(env.clone()),
+            env.clone(),
         );
 
         return Some(Box::new(func_obj));
+    } else if let Some(call_expr) = node.as_any().downcast_ref::<crate::ast::CallExpression>() {
+        let function = eval(call_expr.function.as_ref(), env);
+        if is_error(&function) {
+            return function;
+        }
+
+        let args = eval_expressions(&call_expr.arguments, env);
+        if args.len() == 1 && is_error(&Some(args[0].clone())) {
+            return args.first().cloned();
+        }
+
+        return apply_function(&function.unwrap(), args);
     }
 
     Some(Box::new(NULL_OBJ))
@@ -76,15 +93,13 @@ pub fn eval(node: &dyn Node, env: &mut object::Environment) -> Option<Box<dyn Ob
 fn is_error(obj: &Option<Box<dyn Object>>) -> bool {
     match obj {
         None => false,
-        Some(obj) => {
-            obj.as_error().is_some()
-        }
+        Some(obj) => obj.as_error().is_some(),
     }
 }
 
 fn eval_program(
     statements: &[Box<dyn Statement>],
-    env: &mut object::Environment,
+    env: &mut Rc<RefCell<object::Environment>>,
 ) -> Option<Box<dyn Object>> {
     let mut object: Option<Box<dyn Object>> = None;
 
@@ -105,7 +120,7 @@ fn eval_program(
 
 fn eval_block_statements(
     statements: &[Box<dyn Statement>],
-    env: &mut object::Environment,
+    env: &mut Rc<RefCell<object::Environment>>,
 ) -> Option<Box<dyn Object>> {
     let mut result: Option<Box<dyn Object>> = None;
 
@@ -166,10 +181,7 @@ fn eval_minus_operator_expression(right: Option<Box<dyn Object>>) -> Option<Box<
         if let Some(i) = obj.as_integer() {
             return Some(Box::new(object::Integer { value: -i.value }));
         } else {
-            return Some(new_error!(
-                "unknown operator: -{}",
-                obj.type_name()
-            ));
+            return Some(new_error!("unknown operator: -{}", obj.type_name()));
         }
     }
     None
@@ -177,7 +189,7 @@ fn eval_minus_operator_expression(right: Option<Box<dyn Object>>) -> Option<Box<
 
 fn eval_infix_expression_wrap(
     infix_expr: &InfixExpression,
-    env: &mut object::Environment,
+    env: &mut Rc<RefCell<object::Environment>>,
 ) -> Option<Box<dyn Object>> {
     let left = eval(infix_expr.left.as_ref(), env);
     if is_error(&left) {
@@ -202,8 +214,12 @@ fn eval_infix_expression(
         "-" => eval_integer_infix_expression(left, right, |a, b| a - b, operator),
         "*" => eval_integer_infix_expression(left, right, |a, b| a * b, operator),
         "/" => eval_integer_infix_expression(left, right, |a, b| a / b, operator),
-        "==" => eval_boolean_infix_expression(left, right, |a, b| a == b, Some(|a, b| a == b), operator),
-        "!=" => eval_boolean_infix_expression(left, right, |a, b| a != b, Some(|a, b| a != b), operator),
+        "==" => {
+            eval_boolean_infix_expression(left, right, |a, b| a == b, Some(|a, b| a == b), operator)
+        }
+        "!=" => {
+            eval_boolean_infix_expression(left, right, |a, b| a != b, Some(|a, b| a != b), operator)
+        }
         "<" => eval_boolean_infix_expression(left, right, |a, b| a < b, None, operator),
         ">" => eval_boolean_infix_expression(left, right, |a, b| a > b, None, operator),
         "<=" => eval_boolean_infix_expression(left, right, |a, b| a <= b, None, operator),
@@ -294,7 +310,7 @@ fn eval_boolean_infix_expression(
 
 fn eval_if_expression(
     ie: &crate::ast::IfExpression,
-    env: &mut object::Environment,
+    env: &mut Rc<RefCell<object::Environment>>,
 ) -> Option<Box<dyn Object>> {
     let condition = eval(ie.condition.as_ref(), env);
     if is_error(&condition) {
@@ -328,7 +344,7 @@ fn if_truthy(obj: &dyn Object) -> bool {
 
 fn eval_let_statement(
     let_stmt: &crate::ast::LetStatement,
-    env: &mut object::Environment,
+    env: &mut Rc<RefCell<object::Environment>>,
 ) -> Option<Box<dyn Object>> {
     let val_node = let_stmt.value.as_ref();
     let val = eval(val_node, env);
@@ -338,25 +354,91 @@ fn eval_let_statement(
 
     if let Some(value) = val {
         let v_copy = value.clone_box();
-        env.set(let_stmt.name.value.clone(), value);
+        env.borrow_mut().set(let_stmt.name.value.clone(), value);
         Some(v_copy)
     } else {
         Some(new_error!(
-                "let statement value is None for identifier: {}",
-                let_stmt.name.value
-            ))
+            "let statement value is None for identifier: {}",
+            let_stmt.name.value
+        ))
     }
 }
 
 fn eval_identifier(
     identifier: &crate::ast::Identifier,
-    env: &mut object::Environment,
+    env: &mut Rc<RefCell<object::Environment>>,
 ) -> Option<Box<dyn Object>> {
-    if let Some(value) = env.get(&identifier.value) {
+    if let Some(value) = env.borrow().get(&identifier.value) {
         Some(value.clone_box())
     } else {
         Some(new_error!("identifier not found: {}", identifier.value))
     }
+}
+
+fn eval_expressions(
+    expressions: &[Box<dyn crate::ast::Expression>],
+    env: &mut Rc<RefCell<object::Environment>>,
+) -> Vec<Box<dyn Object>> {
+    let mut args = Vec::with_capacity(expressions.len());
+
+    for expr in expressions {
+        let evaluated = eval(expr.as_ref(), env);
+        if is_error(&evaluated) {
+            return vec![evaluated.unwrap_or_else(|| Box::new(NULL_OBJ))];
+        }
+
+        if let Some(obj) = evaluated {
+            args.push(obj);
+        } else {
+            args.push(Box::new(NULL_OBJ));
+        }
+    }
+
+    args
+}
+
+fn apply_function(
+    function: &Box<dyn Object>,
+    args: Vec<Box<dyn Object>>,
+) -> Option<Box<dyn Object>> {
+    let func_opt = function.as_function();
+    if func_opt.is_none() {
+        return Some(new_error!("not a function: {}", function.type_name()));
+    }
+
+    let func = func_opt.unwrap();
+
+    if func.parameters.len() != args.len() {
+        return Some(new_error!(
+                    "wrong number of arguments: expected {}, got {}",
+                    func.parameters.len(),
+                    args.len()
+                ));
+    }
+
+    let extended_env = extend_function_env(func, &args);
+    let mut extended_env = extended_env.clone();
+    let evaluated = eval(func.body.as_ref(), &mut extended_env);
+    if let Some(return_value) = evaluated {
+        if return_value.type_name() == object::RETURN_VALUE_OBJ {
+            return Some(return_value.as_return_value().unwrap().value.clone());
+        }
+        return Some(return_value);
+    }
+    Some(Box::new(NULL_OBJ)) // If no return value, return null
+}
+
+fn extend_function_env(
+    function: &object::Function,
+    args: &[Box<dyn Object>],
+) -> Rc<RefCell<Environment>> {
+    let extended_env = Environment::new_enclosed(function.env.clone());
+    for (param, arg) in function.parameters.iter().zip(args.iter()) {
+        extended_env
+            .borrow_mut()
+            .set(param.value.clone(), arg.clone_box());
+    }
+    extended_env
 }
 
 #[cfg(test)]
@@ -787,5 +869,54 @@ mod tests {
         assert_eq!(function.body.statements.len(), 1);
         let expect_body = "(x + 2)";
         assert_eq!(function.body.to_string(), expect_body);
+    }
+
+    #[test]
+    fn test_function_application() {
+        struct Case {
+            input: &'static str,
+            expected: i64,
+        }
+
+        let tests = vec![
+            Case {
+                input: "let identify = fn(x) { x; }; identify(5);",
+                expected: 5,
+            },
+            Case {
+                input: "let identify = fn(x) { return x; }; identify(5);",
+                expected: 5,
+            },
+            Case {
+                input: "let add = fn(x, y) { x + y; }; add(5, 10);",
+                expected: 15,
+            },
+            Case {
+                input: "let subtract = fn(x, y) { x - y; }; subtract(10, 5);",
+                expected: 5,
+            },
+            Case {
+                input: "let multiply = fn(x, y) { x * y; }; multiply(3, 4);",
+                expected: 12,
+            },
+            Case {
+                input: "let divide = fn(x, y) { x / y; }; divide(20, 4);",
+                expected: 5,
+            },
+            Case {
+                input: "let divide = fn(x, y) { x / y; }; divide(21 - 1, 2 + 2);",
+                expected: 5,
+            },
+            Case {
+                input: "fn(x) { x + 1; }(5);",
+                expected: 6,
+            },
+        ];
+
+        for test in tests {
+            println!("Testing input: {}", test.input);
+            let object = test_eval(test.input);
+            test_integer_object(object, test.expected);
+        }
     }
 }

@@ -1,6 +1,8 @@
 // Object types
 
+use std::cell::RefCell;
 use std::fmt::Write;
+use std::rc::Rc;
 use crate::ast;
 
 pub const INTEGER_OBJ: &str = "Integer";
@@ -155,23 +157,43 @@ impl Object for Error {
 #[derive(Clone)]
 pub struct Environment {
     pub store: std::collections::HashMap<String, Box<dyn Object>>,
+    pub outer: Option<Rc<RefCell<Environment>>>,
 }
 
 impl Environment {
-    pub fn new() -> Box<Self> {
+    pub fn new() -> Rc<RefCell<Self>> {
         let env = Environment {
             store: std::collections::HashMap::new(),
+            outer: None,
         };
 
-        Box::new(env)
+        Rc::new(RefCell::new(env))
+    }
+
+    pub fn new_enclosed(outer: Rc<RefCell<Environment>>) -> Rc<RefCell<Self>> {
+        let env = Environment {
+            store: std::collections::HashMap::new(),
+            outer: Some(outer),
+        };
+
+        Rc::new(RefCell::new(env))
     }
 
     pub fn set(&mut self, name: String, value: Box<dyn Object>) {
         self.store.insert(name, value);
     }
 
-    pub fn get(&self, name: &str) -> Option<&Box<dyn Object>> {
-        self.store.get(name)
+    pub fn get(&self, name: &str) -> Option<Box<dyn Object>> {
+        match self.store.get(name) {
+            Some(value) => Some(value.clone_box()),
+            None => {
+                if let Some(outer) = &self.outer {
+                    outer.borrow().get(name)
+                } else {
+                    None
+                }
+            }
+        }
     }
 
     pub fn remove(&mut self, name: &str) -> Option<Box<dyn Object>> {
@@ -182,14 +204,14 @@ impl Environment {
 pub struct Function {
     pub parameters: Vec<ast::Identifier>,
     pub body: Box<ast::BlockStatement>,
-    pub env: Box<Environment>,
+    pub env: Rc<RefCell<Environment>>,
 }
 
 impl Function {
     pub fn new(
         parameters: Vec<ast::Identifier>,
         body: Box<ast::BlockStatement>,
-        env: Box<Environment>,
+        env: Rc<RefCell<Environment>>,
     ) -> Self {
         Function {
             parameters,
