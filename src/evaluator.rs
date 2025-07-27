@@ -54,7 +54,7 @@ pub fn eval(node: &dyn Node, env: &mut object::Environment) -> Option<Box<dyn Ob
     } else if let Some(if_expr) = node.as_any().downcast_ref::<crate::ast::IfExpression>() {
         return eval_if_expression(if_expr, env);
     } else if let Some(block_stmt) = node.as_any().downcast_ref::<crate::ast::BlockStatement>() {
-        return eval_block_statements(&block_stmt.statements);
+        return eval_block_statements(&block_stmt.statements, env);
     } else if let Some(return_stmt) = node.as_any().downcast_ref::<crate::ast::ReturnStatement>() {
         if let Some(expr) = return_stmt.return_value.as_ref() {
             let value = eval(expr.as_ref(), env);
@@ -120,10 +120,11 @@ fn eval_program(
     object
 }
 
-fn eval_block_statements(statements: &[Box<dyn Statement>]) -> Option<Box<dyn Object>> {
+fn eval_block_statements(
+    statements: &[Box<dyn Statement>],
+    env: &mut object::Environment,
+) -> Option<Box<dyn Object>> {
     let mut result: Option<Box<dyn Object>> = None;
-
-    let env = &mut object::Environment::new();
 
     for statement in statements {
         result = eval(statement.as_ref(), env);
