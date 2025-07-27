@@ -21,7 +21,7 @@ pub fn eval(node: &dyn Node, env: &mut object::Environment) -> Option<Box<dyn Ob
     if let Some(program) = node.as_program() {
         return eval_program(&program.statements, env);
     } else if let Some(integer_literal) = node.as_any().downcast_ref::<IntegerLiteral>() {
-        return Some(Box::new(crate::object::Integer {
+        return Some(Box::new(object::Integer {
             value: integer_literal.value,
         }));
     } else if let Some(boolean) = node.as_any().downcast_ref::<Boolean>() {
