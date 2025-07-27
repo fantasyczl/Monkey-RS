@@ -40,17 +40,7 @@ pub fn eval(node: &dyn Node, env: &mut object::Environment) -> Option<Box<dyn Ob
             return eval_prefix_expression(&pre_expr.operator, right);
         }
     } else if let Some(infix_expr) = node.as_any().downcast_ref::<InfixExpression>() {
-        let left = eval(infix_expr.left.as_ref(), env);
-        if is_error(&left) {
-            return left;
-        }
-
-        let right = eval(infix_expr.right.as_ref(), env);
-        if is_error(&right) {
-            return right;
-        }
-
-        return eval_infix_expression(&infix_expr.operator, left, right);
+        return eval_infix_expression_wrap(infix_expr, env);
     } else if let Some(if_expr) = node.as_any().downcast_ref::<crate::ast::IfExpression>() {
         return eval_if_expression(if_expr, env);
     } else if let Some(block_stmt) = node.as_any().downcast_ref::<crate::ast::BlockStatement>() {
@@ -67,24 +57,17 @@ pub fn eval(node: &dyn Node, env: &mut object::Environment) -> Option<Box<dyn Ob
             }
         }
     } else if let Some(let_stmt) = node.as_any().downcast_ref::<crate::ast::LetStatement>() {
-        let val_node = let_stmt.value.as_ref();
-        let val = eval(val_node, env);
-        if is_error(&val) {
-            return val;
-        }
-
-        return if let Some(value) = val {
-            let v_copy = value.clone_box();
-            env.set(let_stmt.name.value.clone(), value);
-            Some(v_copy)
-        } else {
-            Some(new_error!(
-                "let statement value is None for identifier: {}",
-                let_stmt.name.value
-            ))
-        }
+        return eval_let_statement(let_stmt, env)
     } else if let Some(identifier) = node.as_any().downcast_ref::<crate::ast::Identifier>() {
         return eval_identifier(identifier, env);
+    } else if let Some(func_node) = node.as_any().downcast_ref::<crate::ast::FunctionLiteral>() {
+        let func_obj = object::Function::new(
+            func_node.parameters.clone(),
+            Box::new(func_node.body.clone()),
+            Box::new(env.clone()),
+        );
+
+        return Some(Box::new(func_obj));
     }
 
     Some(Box::new(NULL_OBJ))
@@ -190,6 +173,23 @@ fn eval_minus_operator_expression(right: Option<Box<dyn Object>>) -> Option<Box<
         }
     }
     None
+}
+
+fn eval_infix_expression_wrap(
+    infix_expr: &InfixExpression,
+    env: &mut object::Environment,
+) -> Option<Box<dyn Object>> {
+    let left = eval(infix_expr.left.as_ref(), env);
+    if is_error(&left) {
+        return left;
+    }
+
+    let right = eval(infix_expr.right.as_ref(), env);
+    if is_error(&right) {
+        return right;
+    }
+
+    eval_infix_expression(&infix_expr.operator, left, right)
 }
 
 fn eval_infix_expression(
@@ -323,6 +323,28 @@ fn if_truthy(obj: &dyn Object) -> bool {
         false
     } else {
         true
+    }
+}
+
+fn eval_let_statement(
+    let_stmt: &crate::ast::LetStatement,
+    env: &mut object::Environment,
+) -> Option<Box<dyn Object>> {
+    let val_node = let_stmt.value.as_ref();
+    let val = eval(val_node, env);
+    if is_error(&val) {
+        return val;
+    }
+
+    if let Some(value) = val {
+        let v_copy = value.clone_box();
+        env.set(let_stmt.name.value.clone(), value);
+        Some(v_copy)
+    } else {
+        Some(new_error!(
+                "let statement value is None for identifier: {}",
+                let_stmt.name.value
+            ))
     }
 }
 
@@ -749,5 +771,21 @@ mod tests {
             let object = test_eval(test.input);
             test_integer_object(object, test.expected);
         }
+    }
+
+    #[test]
+    fn test_function_object() {
+        let input = "fn(x) {x + 2;};";
+
+        let object = test_eval(input);
+        assert!(object.is_some(), "Expected an object, but got None");
+        let object = object.unwrap();
+        assert_eq!(object.type_name(), object::FUNCTION_OBJ);
+        let function = object.as_function().unwrap();
+        assert_eq!(function.parameters.len(), 1);
+        assert_eq!(function.parameters[0].value, "x");
+        assert_eq!(function.body.statements.len(), 1);
+        let expect_body = "(x + 2)";
+        assert_eq!(function.body.to_string(), expect_body);
     }
 }

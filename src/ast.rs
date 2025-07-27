@@ -22,6 +22,7 @@ pub trait Statement: Node + fmt::Display + fmt::Debug {
     fn as_expression_statement(&self) -> Option<&ExpressionStatement> {
         None
     }
+    fn clone_box(&self) -> Box<dyn Statement>;
 }
 
 pub trait Expression: Node + fmt::Debug + fmt::Display {
@@ -49,6 +50,8 @@ pub trait Expression: Node + fmt::Debug + fmt::Display {
     fn as_call_expression(&self) -> Option<&CallExpression> {
         None
     }
+
+    fn clone_box(&self) -> Box<dyn Expression>;
 }
 
 pub struct Program {
@@ -104,6 +107,14 @@ impl<'a> Statement for LetStatement {
     fn as_let_statement(&self) -> Option<&LetStatement> {
         Some(self)
     }
+    fn clone_box(&self) -> Box<dyn Statement> {
+        let let_statement = LetStatement {
+            token: self.token.clone(),
+            name: self.name.clone(),
+            value: self.value.clone_box(),
+        };
+        Box::new(let_statement)
+    }
 }
 
 impl fmt::Display for LetStatement {
@@ -146,6 +157,9 @@ impl Expression for Identifier {
     fn as_identifier(&self) -> Option<&Identifier> {
         Some(self)
     }
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(self.clone())
+    }
 }
 
 impl fmt::Display for Identifier {
@@ -172,6 +186,14 @@ impl Node for ReturnStatement {
 impl Statement for ReturnStatement {
     fn as_return_statement(&self) -> Option<&ReturnStatement> {
         Some(self)
+    }
+    fn clone_box(&self) -> Box<dyn Statement> {
+        let ret = ReturnStatement {
+            token: self.token.clone(),
+            return_value: self.return_value.as_ref().map(|v| v.clone_box()),
+        };
+
+        Box::new(ret)
     }
 }
 
@@ -208,6 +230,13 @@ impl Statement for ExpressionStatement {
     fn as_expression_statement(&self) -> Option<&ExpressionStatement> {
         Some(self)
     }
+    fn clone_box(&self) -> Box<dyn Statement> {
+        let expression_statement = ExpressionStatement {
+            token: self.token.clone(),
+            expression: self.expression.as_ref().map(|e| e.clone_box()),
+        };
+        Box::new(expression_statement)
+    }
 }
 
 impl fmt::Display for ExpressionStatement {
@@ -239,6 +268,12 @@ impl Expression for IntegerLiteral {
     fn as_integer_literal(&self) -> Option<&IntegerLiteral> {
         Some(self)
     }
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(IntegerLiteral {
+            token: self.token.clone(),
+            value: self.value,
+        })
+    }
 }
 
 impl fmt::Display for IntegerLiteral {
@@ -266,6 +301,14 @@ impl Node for PrefixExpression {
 impl Expression for PrefixExpression {
     fn as_prefix_expression(&self) -> Option<&PrefixExpression> {
         Some(self)
+    }
+    fn clone_box(&self) -> Box<dyn Expression> {
+        let prefix_expression = PrefixExpression {
+            token: self.token.clone(),
+            operator: self.operator.clone(),
+            right: self.right.as_ref().map(|r| r.clone_box()),
+        };
+        Box::new(prefix_expression)
     }
 }
 
@@ -306,6 +349,15 @@ impl Expression for InfixExpression {
     fn as_infix_expression(&self) -> Option<&InfixExpression> {
         Some(self)
     }
+    fn clone_box(&self) -> Box<dyn Expression> {
+        let infix_expression = InfixExpression {
+            token: self.token.clone(),
+            left: self.left.clone_box(),
+            operator: self.operator.clone(),
+            right: self.right.clone_box(),
+        };
+        Box::new(infix_expression)
+    }
 }
 
 #[derive(Debug)]
@@ -326,6 +378,12 @@ impl Node for Boolean {
 impl Expression for Boolean {
     fn as_boolean(&self) -> Option<&Boolean> {
         Some(self)
+    }
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(Boolean {
+            token: self.token.clone(),
+            value: self.value,
+        })
     }
 }
 
@@ -371,6 +429,15 @@ impl Node for IfExpression {
 impl Expression for IfExpression {
     fn as_if_expression(&self) -> Option<&IfExpression> {
         Some(self)
+    }
+    fn clone_box(&self) -> Box<dyn Expression> {
+        let if_expression = IfExpression {
+            token: self.token.clone(),
+            condition: self.condition.clone_box(),
+            consequence: self.consequence.clone(),
+            alternative: self.alternative.as_ref().map(|a| a.clone()),
+        };
+        Box::new(if_expression)
     }
 }
 
@@ -420,9 +487,6 @@ impl Node for BlockStatement {
     }
 }
 
-impl Statement for BlockStatement {
-}
-
 impl fmt::Display for BlockStatement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut out = String::new();
@@ -430,6 +494,17 @@ impl fmt::Display for BlockStatement {
             out.push_str(&statement.to_string());
         }
         write!(f, "{}", out)
+    }
+}
+
+impl Clone for BlockStatement {
+    fn clone(&self) -> Self {
+        BlockStatement {
+            token: self.token.clone(),
+            statements: self.statements.iter()
+                .map(|s| s.clone_box())
+                .collect(),
+        }
     }
 }
 
@@ -462,6 +537,14 @@ impl Node for FunctionLiteral {
 impl Expression for FunctionLiteral {
     fn as_function_literal(&self) -> Option<&FunctionLiteral> {
         Some(self)
+    }
+    fn clone_box(&self) -> Box<dyn Expression> {
+        let function_literal = FunctionLiteral {
+            token: self.token.clone(),
+            parameters: self.parameters.clone(),
+            body: self.body.clone(),
+        };
+        Box::new(function_literal)
     }
 }
 
@@ -501,6 +584,16 @@ impl Node for CallExpression {
 impl Expression for CallExpression {
     fn as_call_expression(&self) -> Option<&CallExpression> {
         Some(self)
+    }
+    fn clone_box(&self) -> Box<dyn Expression> {
+        let call_expression = CallExpression {
+            token: self.token.clone(),
+            function: self.function.clone_box(),
+            arguments: self.arguments.iter()
+                .map(|arg| arg.clone_box())
+                .collect(),
+        };
+        Box::new(call_expression)
     }
 }
 
