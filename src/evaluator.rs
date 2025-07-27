@@ -419,6 +419,11 @@ fn apply_function(
     let extended_env = extend_function_env(func, &args);
     let mut extended_env = extended_env.clone();
     let evaluated = eval(func.body.as_ref(), &mut extended_env);
+
+    unwrap_return_value(evaluated)
+}
+
+fn unwrap_return_value(evaluated: Option<Box<dyn Object>>) -> Option<Box<dyn Object>> {
     if let Some(return_value) = evaluated {
         if return_value.type_name() == object::RETURN_VALUE_OBJ {
             return Some(return_value.as_return_value().unwrap().value.clone());
