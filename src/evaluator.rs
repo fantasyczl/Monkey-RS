@@ -19,7 +19,7 @@ macro_rules! new_error {
 
 pub fn eval(node: &dyn Node, env: &mut object::Environment) -> Option<Box<dyn Object>> {
     if let Some(program) = node.as_program() {
-        return eval_program(&program.statements);
+        return eval_program(&program.statements, env);
     } else if let Some(integer_literal) = node.as_any().downcast_ref::<IntegerLiteral>() {
         return Some(Box::new(crate::object::Integer {
             value: integer_literal.value,
@@ -52,7 +52,7 @@ pub fn eval(node: &dyn Node, env: &mut object::Environment) -> Option<Box<dyn Ob
 
         return eval_infix_expression(&infix_expr.operator, left, right);
     } else if let Some(if_expr) = node.as_any().downcast_ref::<crate::ast::IfExpression>() {
-        return eval_if_expression(if_expr);
+        return eval_if_expression(if_expr, env);
     } else if let Some(block_stmt) = node.as_any().downcast_ref::<crate::ast::BlockStatement>() {
         return eval_block_statements(&block_stmt.statements);
     } else if let Some(return_stmt) = node.as_any().downcast_ref::<crate::ast::ReturnStatement>() {
@@ -73,8 +73,15 @@ pub fn eval(node: &dyn Node, env: &mut object::Environment) -> Option<Box<dyn Ob
             return val;
         }
 
-        if let Some(value) = val {
+        return if let Some(value) = val {
+            let v_copy = value.clone_box();
             env.set(let_stmt.name.value.clone(), value);
+            Some(v_copy)
+        } else {
+            Some(new_error!(
+                "let statement value is None for identifier: {}",
+                let_stmt.name.value
+            ))
         }
     } else if let Some(identifier) = node.as_any().downcast_ref::<crate::ast::Identifier>() {
         return eval_identifier(identifier, env);
@@ -92,10 +99,11 @@ fn is_error(obj: &Option<Box<dyn Object>>) -> bool {
     }
 }
 
-fn eval_program(statements: &[Box<dyn Statement>]) -> Option<Box<dyn Object>> {
+fn eval_program(
+    statements: &[Box<dyn Statement>],
+    env: &mut object::Environment,
+) -> Option<Box<dyn Object>> {
     let mut object: Option<Box<dyn Object>> = None;
-
-    let env = &mut object::Environment::new();
 
     for statement in statements {
         object = eval(statement.as_ref(), env);
@@ -283,8 +291,10 @@ fn eval_boolean_infix_expression(
     None
 }
 
-fn eval_if_expression(ie: &crate::ast::IfExpression) -> Option<Box<dyn Object>> {
-    let env = &mut object::Environment::new();
+fn eval_if_expression(
+    ie: &crate::ast::IfExpression,
+    env: &mut object::Environment,
+) -> Option<Box<dyn Object>> {
     let condition = eval(ie.condition.as_ref(), env);
     if is_error(&condition) {
         return condition;
@@ -712,8 +722,8 @@ mod tests {
 
         let tests = vec![
             Case {
-                input: "let x = 5; x;",
-                expected: 5,
+                input: "let x = 5; let c = x; c + c + 2;",
+                expected: 12,
             },
             Case {
                 input: "let y = 10; y + 5;",
@@ -726,6 +736,10 @@ mod tests {
             Case {
                 input: "let a = 1; let b = 2; a + b;",
                 expected: 3,
+            },
+            Case {
+                input: "let a = 5; let b = a > 3; if (b) { 10 } else {1};",
+                expected: 10,
             },
         ];
 
