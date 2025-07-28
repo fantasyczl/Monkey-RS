@@ -34,11 +34,7 @@ pub fn start_repl(input : &mut dyn std::io::Read, out: &mut dyn std::io::Write) 
         }
 
         if let Some(evaluated) = evaluator::eval(&program, env) {
-            if evaluated.type_name() == "Null" {
-                writeln!(out, "null").unwrap();
-            } else {
-                writeln!(out, "{}", evaluated.inspect()).unwrap();
-            }
+            writeln!(out, "{}", evaluated.inspect()).unwrap();
         }
     }
 }
