@@ -3,7 +3,7 @@ use crate::ast::{
     Statement,
 };
 use crate::object;
-use crate::object::{Environment, Object};
+use crate::object::{Object};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -436,8 +436,8 @@ fn unwrap_return_value(evaluated: Option<Box<dyn Object>>) -> Option<Box<dyn Obj
 fn extend_function_env(
     function: &object::Function,
     args: &[Box<dyn Object>],
-) -> Rc<RefCell<Environment>> {
-    let extended_env = Environment::new_enclosed(function.env.clone());
+) -> Rc<RefCell<object::Environment>> {
+    let extended_env = object::Environment::new_enclosed(function.env.clone());
     for (param, arg) in function.parameters.iter().zip(args.iter()) {
         extended_env
             .borrow_mut()
