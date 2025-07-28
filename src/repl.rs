@@ -7,7 +7,7 @@ const PROMPT: &str = ">> ";
 
 pub fn start_repl(input : &mut dyn std::io::Read, out: &mut dyn std::io::Write) {
     let mut scanner = std::io::BufReader::new(input);
-    let env = &mut object::Environment::new();
+    let env = &object::Environment::new();
 
     loop {
         out.write_fmt(format_args!("{}", PROMPT)).unwrap();

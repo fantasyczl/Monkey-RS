@@ -525,7 +525,7 @@ mod tests {
         let mut l = Lexer::new(input);
         let mut p = Parser::new(&mut l);
         let program = p.parse_program();
-        let env = &mut object::Environment::new();
+        let env = &object::Environment::new();
 
         eval(&program, env)
     }
