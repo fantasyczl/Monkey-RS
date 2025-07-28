@@ -21,7 +21,7 @@ macro_rules! new_error {
 
 pub fn eval(
     node: &dyn Node,
-    env: &mut Rc<RefCell<object::Environment>>,
+    env: &Rc<RefCell<object::Environment>>,
 ) -> Option<Box<dyn Object>> {
     if let Some(program) = node.as_program() {
         return eval_program(&program.statements, env);
@@ -99,7 +99,7 @@ fn is_error(obj: &Option<Box<dyn Object>>) -> bool {
 
 fn eval_program(
     statements: &[Box<dyn Statement>],
-    env: &mut Rc<RefCell<object::Environment>>,
+    env: &Rc<RefCell<object::Environment>>,
 ) -> Option<Box<dyn Object>> {
     let mut object: Option<Box<dyn Object>> = None;
 
@@ -120,7 +120,7 @@ fn eval_program(
 
 fn eval_block_statements(
     statements: &[Box<dyn Statement>],
-    env: &mut Rc<RefCell<object::Environment>>,
+    env: &Rc<RefCell<object::Environment>>,
 ) -> Option<Box<dyn Object>> {
     let mut result: Option<Box<dyn Object>> = None;
 
@@ -189,7 +189,7 @@ fn eval_minus_operator_expression(right: Option<Box<dyn Object>>) -> Option<Box<
 
 fn eval_infix_expression_wrap(
     infix_expr: &InfixExpression,
-    env: &mut Rc<RefCell<object::Environment>>,
+    env: &Rc<RefCell<object::Environment>>,
 ) -> Option<Box<dyn Object>> {
     let left = eval(infix_expr.left.as_ref(), env);
     if is_error(&left) {
@@ -310,7 +310,7 @@ fn eval_boolean_infix_expression(
 
 fn eval_if_expression(
     ie: &crate::ast::IfExpression,
-    env: &mut Rc<RefCell<object::Environment>>,
+    env: &Rc<RefCell<object::Environment>>,
 ) -> Option<Box<dyn Object>> {
     let condition = eval(ie.condition.as_ref(), env);
     if is_error(&condition) {
@@ -344,7 +344,7 @@ fn if_truthy(obj: &dyn Object) -> bool {
 
 fn eval_let_statement(
     let_stmt: &crate::ast::LetStatement,
-    env: &mut Rc<RefCell<object::Environment>>,
+    env: &Rc<RefCell<object::Environment>>,
 ) -> Option<Box<dyn Object>> {
     let val_node = let_stmt.value.as_ref();
     let val = eval(val_node, env);
@@ -366,7 +366,7 @@ fn eval_let_statement(
 
 fn eval_identifier(
     identifier: &crate::ast::Identifier,
-    env: &mut Rc<RefCell<object::Environment>>,
+    env: &Rc<RefCell<object::Environment>>,
 ) -> Option<Box<dyn Object>> {
     if let Some(value) = env.borrow().get(&identifier.value) {
         Some(value.clone_box())
@@ -377,7 +377,7 @@ fn eval_identifier(
 
 fn eval_expressions(
     expressions: &[Box<dyn crate::ast::Expression>],
-    env: &mut Rc<RefCell<object::Environment>>,
+    env: &Rc<RefCell<object::Environment>>,
 ) -> Vec<Box<dyn Object>> {
     let mut args = Vec::with_capacity(expressions.len());
 
