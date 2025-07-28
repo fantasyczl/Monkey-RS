@@ -201,6 +201,7 @@ impl Environment {
     }
 }
 
+#[derive(Clone)]
 pub struct Function {
     pub parameters: Vec<ast::Identifier>,
     pub body: Box<ast::BlockStatement>,
@@ -249,15 +250,5 @@ impl Object for Function {
 
     fn as_function(&self) -> Option<&Function> {
         Some(self)
-    }
-}
-
-impl Clone for Function {
-    fn clone(&self) -> Function {
-        Function {
-            parameters: self.parameters.clone(),
-            body: self.body.clone(),
-            env: self.env.clone(),
-        }
     }
 }
