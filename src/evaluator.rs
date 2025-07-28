@@ -924,4 +924,22 @@ mod tests {
             test_integer_object(object, test.expected);
         }
     }
+
+    #[test]
+    fn test_closure() {
+        let input = r#"
+        let newAdder = fn(x) {
+            fn(y) { x + y; };
+        };
+        let addTwo = newAdder(2);
+        addTwo(5);
+        "#;
+        let expected = 7;
+        let object = test_eval(input);
+        assert!(object.is_some(), "Expected an object, but got None");
+        let object = object.unwrap();
+        assert_eq!(object.type_name(), object::INTEGER_OBJ);
+        let integer = object.as_integer().unwrap();
+        assert_eq!(integer.value, expected, "Expected {}, got {}", expected, integer.value);
+    }
 }
