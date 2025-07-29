@@ -105,18 +105,7 @@ impl Lexer {
                     let literal = self.read_number();
                     return Token::new(TokenType::INT, &literal);
                 } else if self.ch == '"' {
-                    let mut literal = String::new();
-                    self.read_char(); // consume the opening quote
-                    while self.ch != '"' && self.ch != '\0' {
-                        literal.push(self.ch);
-                        self.read_char();
-                    }
-                    if self.ch == '"' {
-                        self.read_char(); // consume the closing quote
-                        token = Token::new(TokenType::STRING, &literal);
-                    } else {
-                        token = Token::new(TokenType::ILLEGAL, "unterminated string");
-                    }
+                    return self.read_string_token();
                 } else {
                     token = Token::new(TokenType::ILLEGAL, self.ch.to_string().as_str());
                 }
@@ -124,6 +113,25 @@ impl Lexer {
         }
 
         self.read_char();
+
+        token
+    }
+
+    fn read_string_token(&mut self) -> Token {
+        let mut literal = String::new();
+        self.read_char(); // consume the opening quote
+        while self.ch != '"' && self.ch != '\0' {
+            literal.push(self.ch);
+            self.read_char();
+        }
+
+        let token: Token;
+        if self.ch == '"' {
+            self.read_char(); // consume the closing quote
+            token = Token::new(TokenType::STRING, &literal)
+        } else {
+            token = Token::new(TokenType::ILLEGAL, "unterminated string")
+        }
 
         token
     }
