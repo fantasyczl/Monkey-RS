@@ -104,6 +104,19 @@ impl Lexer {
                 } else if is_digit(self.ch) {
                     let literal = self.read_number();
                     return Token::new(TokenType::INT, &literal);
+                } else if self.ch == '"' {
+                    let mut literal = String::new();
+                    self.read_char(); // consume the opening quote
+                    while self.ch != '"' && self.ch != '\0' {
+                        literal.push(self.ch);
+                        self.read_char();
+                    }
+                    if self.ch == '"' {
+                        self.read_char(); // consume the closing quote
+                        token = Token::new(TokenType::STRING, &literal);
+                    } else {
+                        token = Token::new(TokenType::ILLEGAL, "unterminated string");
+                    }
                 } else {
                     token = Token::new(TokenType::ILLEGAL, self.ch.to_string().as_str());
                 }
@@ -225,6 +238,8 @@ let add = fn(x, y) {
 
         10 == 10;
         10 != 9;
+        "foobar"
+        "foo bar"
         "#;
 
         let tests = vec![
@@ -300,6 +315,9 @@ let add = fn(x, y) {
             (TokenType::INT, "10"),
             (TokenType::NotEq, "!="),
             (TokenType::INT, "9"),
+            (TokenType::SEMICOLON, ";"),
+            (TokenType::STRING, "foobar"),
+            (TokenType::STRING, "foo bar"),
         ];
 
         let mut lexer = Lexer::new(input);

@@ -28,6 +28,7 @@ pub enum TokenType {
     //  标识符+字面量
     IDENT, // add, foobar, x, y, ...
     INT,   // 123456
+    STRING,
 
     // 运算符
     ASSIGN,   // =
@@ -69,6 +70,7 @@ impl TokenType {
             TokenType::EOF => "EOF",
             TokenType::IDENT => "IDENT",
             TokenType::INT => "INT",
+            TokenType::STRING => "STRING",
             TokenType::ASSIGN => "=",
             TokenType::PLUS => "+",
             TokenType::MINUS => "-",
