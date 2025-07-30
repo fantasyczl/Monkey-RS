@@ -32,6 +32,9 @@ pub trait Expression: Node + fmt::Debug + fmt::Display {
     fn as_integer_literal(&self) -> Option<&IntegerLiteral> {
         None
     }
+    fn as_string_literal(&self) -> Option<&StringLiteral> {
+        None
+    }
     fn as_prefix_expression(&self) -> Option<&PrefixExpression> {
         None
     }
@@ -279,6 +282,39 @@ impl Expression for IntegerLiteral {
 impl fmt::Display for IntegerLiteral {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.value)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StringLiteral {
+    pub token: Token,
+    pub value: String,
+}
+
+impl Node for StringLiteral {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl Expression for StringLiteral {
+    fn as_string_literal(&self) -> Option<&StringLiteral> {
+        Some(self)
+    }
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(StringLiteral {
+            token: self.token.clone(),
+            value: self.value.clone(),
+        })
+    }
+}
+
+impl fmt::Display for StringLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\"{}\"", self.value)
     }
 }
 
