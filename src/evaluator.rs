@@ -31,6 +31,10 @@ pub fn eval(
         }));
     } else if let Some(boolean) = node.as_any().downcast_ref::<Boolean>() {
         return Some(native_bool_to_boolean_object(boolean.value));
+    } else if let Some(str_exp) = node.as_any().downcast_ref::<crate::ast::StringLiteral>() {
+        return Some(Box::new(object::STRING {
+            value: str_exp.value.clone(),
+        }));
     } else if let Some(expr) = node.as_any().downcast_ref::<ExpressionStatement>() {
         if let Some(expr) = expr.expression.as_ref() {
             return eval(expr.as_ref(), env);
@@ -941,5 +945,17 @@ mod tests {
         assert_eq!(object.type_name(), object::INTEGER_OBJ);
         let integer = object.as_integer().unwrap();
         assert_eq!(integer.value, expected, "Expected {}, got {}", expected, integer.value);
+    }
+
+    #[test]
+    fn test_string_literal() {
+        let input = r#"
+        "Hello World!"
+        "#;
+
+        let evaluated = test_eval(input);
+
+        let val = evaluated.as_ref().unwrap().as_string().unwrap().value.as_str();
+        assert_eq!(val, "Hello World!");
     }
 }

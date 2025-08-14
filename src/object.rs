@@ -11,6 +11,7 @@ pub const NULL_OBJ: &str = "Null";
 pub const RETURN_VALUE_OBJ: &str = "ReturnValue";
 pub const ERROR_OBJ: &str = "Error";
 pub const FUNCTION_OBJ: &str = "Function";
+pub const STRING_OBJ: &str = "String";
 
 type ObjectType = String;
 
@@ -36,6 +37,7 @@ pub trait Object {
     fn as_function(&self) -> Option<&Function> {
         None
     }
+    fn as_string(&self) -> Option<&STRING> {None}
 }
 
 #[derive(Debug, Clone)]
@@ -249,6 +251,29 @@ impl Object for Function {
     }
 
     fn as_function(&self) -> Option<&Function> {
+        Some(self)
+    }
+}
+
+#[derive(Clone)]
+pub struct STRING {
+    pub value: String
+}
+
+impl Object for STRING {
+    fn type_name(&self) -> ObjectType {
+        STRING_OBJ.to_string()
+    }
+
+    fn inspect(&self) -> String {
+        self.value.clone()
+    }
+
+    fn clone_box(&self) -> Box<dyn Object> {
+        Box::new(self.clone())
+    }
+
+    fn as_string(&self) -> Option<&STRING> {
         Some(self)
     }
 }
