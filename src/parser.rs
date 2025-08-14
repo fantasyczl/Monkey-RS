@@ -1,4 +1,4 @@
-use crate::ast::{Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement, Statement, InfixExpression, Boolean, BlockStatement, FunctionLiteral};
+use crate::ast::{Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement, Statement, InfixExpression, Boolean, BlockStatement, FunctionLiteral, StringLiteral};
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
 use once_cell::sync::Lazy;
@@ -62,6 +62,7 @@ impl<'a> Parser<'a> {
         p.register_prefix(TokenType::LPAREN, parse_grouped_expression);
         p.register_prefix(TokenType::IF, parse_if_expression);
         p.register_prefix(TokenType::FUNCTION, parse_function_literal);
+        p.register_prefix(TokenType::STRING, parse_string_literal);
 
         // 注册中缀解析函数
         p.register_infix(TokenType::PLUS, parse_infix_expression);
@@ -304,6 +305,18 @@ fn parse_integer_literal(parser: &mut Parser) -> Option<Box<dyn Expression>> {
     }
 }
 
+fn parse_string_literal(parser: &mut Parser) -> Option<Box<dyn Expression>> {
+    // 这里可以实现字符串字面量的解析逻辑
+    // 例如处理 "hello world" 等
+
+    let literal = Box::new(StringLiteral {
+        token: parser.cur_token.clone(),
+        value: parser.cur_token.literal.clone(),
+    });
+
+    Some(literal)
+}
+
 fn parse_prefix_expression(parser: &mut Parser) -> Option<Box<dyn Expression>> {
     // 这里可以实现前缀表达式的解析逻辑
     // 例如处理 !5 或 -15 等
@@ -456,27 +469,27 @@ fn parse_function_parameters(parser: &mut Parser) -> Vec<Identifier> {
     }
 
     parser.next_token();
-    
+
     loop {
         let param = Identifier{
             token: parser.cur_token.clone(),
             value: parser.cur_token.literal.clone(),
         };
-        
+
         parameters.push(param);
-        
+
         if !parser.peek_token_is(TokenType::COMMA) {
             break; // 如果下一个 token 不是逗号，结束参数解析
         }
-        
+
         parser.next_token(); // 跳过逗号
         parser.next_token(); // 跳过逗号
     }
-    
+
     if !parser.expect_peek(TokenType::RPAREN) {
         return vec![]; // 如果没有正确的右括号，返回空参数列表
     }
-    
+
     parameters
 }
 
@@ -1136,7 +1149,7 @@ return x + y + 2;
         let mut p = Parser::new(&mut l);
         let program = p.parse_program();
         check_parser_errors(&p);
-        
+
         assert_eq!(program.statements.len(), 1);
 
         match program.statements.get(0).unwrap().as_expression_statement().
@@ -1247,6 +1260,29 @@ return x + y + 2;
             Some(call_expr) => {
                 test_identifier(&call_expr.function, "add");
                 assert_eq!(call_expr.arguments.len(), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_string_literal_expression() {
+        let input = r#"
+        "hello world"
+        "#;
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        assert_eq!(program.statements.len(), 1);
+
+        let expression = program.statements.first().unwrap().as_expression_statement();
+
+        match expression.unwrap().expression.as_ref().unwrap().as_string_literal() {
+            None => panic!("expression is not StringLiteral"),
+            Some(string_literal) => {
+                assert_eq!(string_literal.value, "hello world");
+                assert_eq!(string_literal.token_literal(), "hello world");
             }
         }
     }
