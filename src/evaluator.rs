@@ -213,9 +213,35 @@ fn eval_infix_expression(
     left: Option<Box<dyn Object>>,
     right: Option<Box<dyn Object>>,
 ) -> Option<Box<dyn Object>> {
+    if let (Some(left_obj), Some(right_obj)) = (&left, &right) {
+        if left_obj.type_name() == object::STRING_OBJ
+            && right_obj.type_name() == object::STRING_OBJ
+        {
+            let left_str = left_obj.as_string().unwrap();
+            let right_str = right_obj.as_string().unwrap();
+
+            if operator != "+" {
+                return Some(new_error!(
+                    "unknown operator: {} {} {}",
+                    left_obj.type_name(),
+                    operator,
+                    right_obj.type_name()
+                ));
+            }
+
+            return Some(Box::new(object::STRING {
+                value: format!("{}{}", left_str.value, right_str.value),
+            }));
+        }
+    }
+
     match operator {
-        "+" => eval_integer_infix_expression(left, right, |a, b| a + b, operator),
-        "-" => eval_integer_infix_expression(left, right, |a, b| a - b, operator),
+        "+" => {
+            eval_integer_infix_expression(left, right, |a, b| a + b, operator)
+        },
+        "-" => {
+            eval_integer_infix_expression(left, right, |a, b| a - b, operator)
+        },
         "*" => eval_integer_infix_expression(left, right, |a, b| a * b, operator),
         "/" => eval_integer_infix_expression(left, right, |a, b| a / b, operator),
         "==" => {
@@ -800,6 +826,10 @@ mod tests {
                 input: "foobar",
                 expected_error: "identifier not found: foobar",
             },
+            Case {
+                input: r#""Hello" - "World""#,
+                expected_error: "unknown operator: String - String",
+            },
         ];
 
         for test in tests {
@@ -955,6 +985,17 @@ mod tests {
 
         let evaluated = test_eval(input);
 
+        let val = evaluated.as_ref().unwrap().as_string().unwrap().value.as_str();
+        assert_eq!(val, "Hello World!");
+    }
+
+    #[test]
+    fn test_string_concatenation() {
+        let input = r#"
+        "Hello" + " " + "World!"
+        "#;
+
+        let evaluated = test_eval(input);
         let val = evaluated.as_ref().unwrap().as_string().unwrap().value.as_str();
         assert_eq!(val, "Hello World!");
     }
