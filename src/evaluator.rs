@@ -1,10 +1,12 @@
+use once_cell::sync::Lazy;
 use crate::ast::{
     Boolean, ExpressionStatement, InfixExpression, IntegerLiteral, Node, PrefixExpression,
     Statement,
 };
 use crate::object;
-use crate::object::{Object};
+use crate::object::Object;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 const NULL_OBJ: object::Null = object::Null;
@@ -19,10 +21,37 @@ macro_rules! new_error {
     };
 }
 
-pub fn eval(
-    node: &dyn Node,
-    env: &Rc<RefCell<object::Environment>>,
-) -> Option<Box<dyn Object>> {
+// Builtin functions
+fn len_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
+    if args.len() != 1 {
+        return Some(new_error!(
+            "wrong number of arguments. got={}, want=1",
+            args.len()
+        ));
+    }
+
+    let arg = &args[0];
+    if let Some(string_obj) = arg.as_string() {
+        return Some(Box::new(object::Integer {
+            value: string_obj.value.len() as i64,
+        }));
+    } else {
+        return Some(new_error!(
+            "argument to `len` not supported, got {}",
+            arg.type_name()
+        ));
+    }
+}
+
+// 全局内置函数映射，惰性初始化
+static BUILTINS: Lazy<HashMap<&'static str, object::Builtin>> = Lazy::new(|| {
+    let mut m = HashMap::new();
+    m.insert("len", object::Builtin { func: len_builtin });
+    m
+});
+
+
+pub fn eval(node: &dyn Node, env: &Rc<RefCell<object::Environment>>) -> Option<Box<dyn Object>> {
     if let Some(program) = node.as_program() {
         return eval_program(&program.statements, env);
     } else if let Some(integer_literal) = node.as_any().downcast_ref::<IntegerLiteral>() {
@@ -214,8 +243,7 @@ fn eval_infix_expression(
     right: Option<Box<dyn Object>>,
 ) -> Option<Box<dyn Object>> {
     if let (Some(left_obj), Some(right_obj)) = (&left, &right) {
-        if left_obj.type_name() == object::STRING_OBJ
-            && right_obj.type_name() == object::STRING_OBJ
+        if left_obj.type_name() == object::STRING_OBJ && right_obj.type_name() == object::STRING_OBJ
         {
             let left_str = left_obj.as_string().unwrap();
             let right_str = right_obj.as_string().unwrap();
@@ -236,12 +264,8 @@ fn eval_infix_expression(
     }
 
     match operator {
-        "+" => {
-            eval_integer_infix_expression(left, right, |a, b| a + b, operator)
-        },
-        "-" => {
-            eval_integer_infix_expression(left, right, |a, b| a - b, operator)
-        },
+        "+" => eval_integer_infix_expression(left, right, |a, b| a + b, operator),
+        "-" => eval_integer_infix_expression(left, right, |a, b| a - b, operator),
         "*" => eval_integer_infix_expression(left, right, |a, b| a * b, operator),
         "/" => eval_integer_infix_expression(left, right, |a, b| a / b, operator),
         "==" => {
@@ -400,6 +424,8 @@ fn eval_identifier(
 ) -> Option<Box<dyn Object>> {
     if let Some(value) = env.borrow().get(&identifier.value) {
         Some(value.clone_box())
+    } else if let Some(builtin) = BUILTINS.get(identifier.value.as_str()) {
+        Some(Box::new(builtin.clone()))
     } else {
         Some(new_error!("identifier not found: {}", identifier.value))
     }
@@ -432,6 +458,7 @@ fn apply_function(
     args: Vec<Box<dyn Object>>,
 ) -> Option<Box<dyn Object>> {
     let func_opt = function.as_function();
+    // TODO: handle builtin functions
     if func_opt.is_none() {
         return Some(new_error!("not a function: {}", function.type_name()));
     }
@@ -440,10 +467,10 @@ fn apply_function(
 
     if func.parameters.len() != args.len() {
         return Some(new_error!(
-                    "wrong number of arguments: expected {}, got {}",
-                    func.parameters.len(),
-                    args.len()
-                ));
+            "wrong number of arguments: expected {}, got {}",
+            func.parameters.len(),
+            args.len()
+        ));
     }
 
     let extended_env = extend_function_env(func, &args);
@@ -974,7 +1001,11 @@ mod tests {
         let object = object.unwrap();
         assert_eq!(object.type_name(), object::INTEGER_OBJ);
         let integer = object.as_integer().unwrap();
-        assert_eq!(integer.value, expected, "Expected {}, got {}", expected, integer.value);
+        assert_eq!(
+            integer.value, expected,
+            "Expected {}, got {}",
+            expected, integer.value
+        );
     }
 
     #[test]
@@ -985,7 +1016,13 @@ mod tests {
 
         let evaluated = test_eval(input);
 
-        let val = evaluated.as_ref().unwrap().as_string().unwrap().value.as_str();
+        let val = evaluated
+            .as_ref()
+            .unwrap()
+            .as_string()
+            .unwrap()
+            .value
+            .as_str();
         assert_eq!(val, "Hello World!");
     }
 
@@ -996,7 +1033,73 @@ mod tests {
         "#;
 
         let evaluated = test_eval(input);
-        let val = evaluated.as_ref().unwrap().as_string().unwrap().value.as_str();
+        let val = evaluated
+            .as_ref()
+            .unwrap()
+            .as_string()
+            .unwrap()
+            .value
+            .as_str();
         assert_eq!(val, "Hello World!");
+    }
+
+    #[test]
+    fn test_builtin_function() {
+        struct Case {
+            input: &'static str,
+            expected: Result<i64, &'static str>,
+        }
+        let input_list = vec![
+            Case {
+                input: r#"len("")"#,
+                expected: Ok(0),
+            },
+            Case {
+                input: r#"len("four")"#,
+                expected: Ok(4),
+            },
+            Case {
+                input: r#"len("hello world")"#,
+                expected: Ok(11),
+            },
+            Case {
+                input: r#"len(1)"#,
+                expected: Err("argument to `len` not supported, got Integer"),
+            },
+            Case {
+                input: r#"len("one", "two")"#,
+                expected: Err("wrong number of arguments. got=2, want=1"),
+            },
+        ];
+
+        for case in input_list {
+            println!("Testing input: {}", case.input);
+
+            let evaluated = test_eval(case.input);
+            match case.expected {
+                Ok(expected_int) => {
+                    assert!(evaluated.is_some(), "Expected an object, but got None");
+                    let evaluated = evaluated.unwrap();
+                    println!("{:?}, {:?}", evaluated.type_name(), evaluated.inspect());
+                    assert_eq!(evaluated.type_name(), object::INTEGER_OBJ);
+                    let integer_obj = evaluated.as_integer().unwrap();
+                    assert_eq!(
+                        integer_obj.value, expected_int,
+                        "Expected integer value {}, got {}",
+                        expected_int, integer_obj.value
+                    );
+                }
+                Err(expected_err) => {
+                    assert!(evaluated.is_some(), "Expected an object, but got None");
+                    let evaluated = evaluated.unwrap();
+                    let error_obj = evaluated.as_error().unwrap();
+                    assert_eq!(
+                        error_obj.message, expected_err,
+                        "Expected error message '{}', got '{}'",
+                        expected_err, error_obj.message
+                    );
+                }
+            }
+        }
     }
 }

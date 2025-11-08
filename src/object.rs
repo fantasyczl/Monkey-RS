@@ -1,9 +1,9 @@
 // Object types
 
+use crate::ast;
 use std::cell::RefCell;
 use std::fmt::Write;
 use std::rc::Rc;
-use crate::ast;
 
 pub const INTEGER_OBJ: &str = "Integer";
 pub const BOOLEAN_OBJ: &str = "Boolean";
@@ -12,6 +12,7 @@ pub const RETURN_VALUE_OBJ: &str = "ReturnValue";
 pub const ERROR_OBJ: &str = "Error";
 pub const FUNCTION_OBJ: &str = "Function";
 pub const STRING_OBJ: &str = "String";
+pub const BUILTIN_OBJ: &str = "Builtin";
 
 type ObjectType = String;
 
@@ -37,7 +38,9 @@ pub trait Object {
     fn as_function(&self) -> Option<&Function> {
         None
     }
-    fn as_string(&self) -> Option<&STRING> {None}
+    fn as_string(&self) -> Option<&STRING> {
+        None
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -257,7 +260,7 @@ impl Object for Function {
 
 #[derive(Clone)]
 pub struct STRING {
-    pub value: String
+    pub value: String,
 }
 
 impl Object for STRING {
@@ -275,5 +278,26 @@ impl Object for STRING {
 
     fn as_string(&self) -> Option<&STRING> {
         Some(self)
+    }
+}
+
+pub type BuiltinFunction = fn(Vec<Box<dyn Object>>) -> Option<Box<dyn Object>>;
+
+#[derive(Clone)]
+pub struct Builtin {
+    pub func: BuiltinFunction,
+}
+
+impl Object for Builtin {
+    fn type_name(&self) -> ObjectType {
+        BUILTIN_OBJ.into()
+    }
+
+    fn inspect(&self) -> String {
+        "builtin function".into()
+    }
+
+    fn clone_box(&self) -> Box<dyn Object> {
+        Box::new(self.clone())
     }
 }
