@@ -32,14 +32,14 @@ fn len_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
 
     let arg = &args[0];
     if let Some(string_obj) = arg.as_string() {
-        return Some(Box::new(object::Integer {
+        Some(Box::new(object::Integer {
             value: string_obj.value.len() as i64,
-        }));
+        }))
     } else {
-        return Some(new_error!(
+        Some(new_error!(
             "argument to `len` not supported, got {}",
             arg.type_name()
-        ));
+        ))
     }
 }
 
@@ -457,8 +457,12 @@ fn apply_function(
     function: &Box<dyn Object>,
     args: Vec<Box<dyn Object>>,
 ) -> Option<Box<dyn Object>> {
+    // handle builtin functions
+    if let Some(builtin) = function.as_builtin() {
+        return (builtin.func)(args);
+    }
+
     let func_opt = function.as_function();
-    // TODO: handle builtin functions
     if func_opt.is_none() {
         return Some(new_error!("not a function: {}", function.type_name()));
     }

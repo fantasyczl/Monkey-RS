@@ -41,6 +41,9 @@ pub trait Object {
     fn as_string(&self) -> Option<&STRING> {
         None
     }
+    fn as_builtin(&self) -> Option<&Builtin> {
+        None
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -299,5 +302,8 @@ impl Object for Builtin {
 
     fn clone_box(&self) -> Box<dyn Object> {
         Box::new(self.clone())
+    }
+    fn as_builtin(&self) -> Option<&Builtin> {
+        Some(self)
     }
 }
