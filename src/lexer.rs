@@ -81,6 +81,12 @@ impl Lexer {
             '}' => {
                 token = Token::new(TokenType::RBRACE, char);
             }
+            '[' => {
+                token = Token::new(TokenType::LBRACKET, char);
+            }
+            ']' => {
+                token = Token::new(TokenType::RBRACKET, char);
+            }
             ',' => {
                 token = Token::new(TokenType::COMMA, char);
             }
@@ -248,6 +254,7 @@ let add = fn(x, y) {
         10 != 9;
         "foobar"
         "foo bar"
+        [1, 2];
         "#;
 
         let tests = vec![
@@ -326,6 +333,12 @@ let add = fn(x, y) {
             (TokenType::SEMICOLON, ";"),
             (TokenType::STRING, "foobar"),
             (TokenType::STRING, "foo bar"),
+            (TokenType::LBRACKET, "["),
+            (TokenType::INT, "1"),
+            (TokenType::COMMA, ","),
+            (TokenType::INT, "2"),
+            (TokenType::RBRACKET, "]"),
+            (TokenType::SEMICOLON, ";"),
         ];
 
         let mut lexer = Lexer::new(input);

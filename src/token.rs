@@ -52,6 +52,8 @@ pub enum TokenType {
     RPAREN, // )
     LBRACE, // {
     RBRACE, // }
+    LBRACKET, // [
+    RBRACKET, // ]
 
     // 关键字
     FUNCTION, // function
@@ -71,6 +73,7 @@ impl TokenType {
             TokenType::IDENT => "IDENT",
             TokenType::INT => "INT",
             TokenType::STRING => "STRING",
+
             TokenType::ASSIGN => "=",
             TokenType::PLUS => "+",
             TokenType::MINUS => "-",
@@ -83,10 +86,14 @@ impl TokenType {
             TokenType::NotEq => "!=",
             TokenType::COMMA => ",",
             TokenType::SEMICOLON => ";",
+
             TokenType::LPAREN => "(",
             TokenType::RPAREN => ")",
             TokenType::LBRACE => "{",
             TokenType::RBRACE => "}",
+            TokenType::LBRACKET => "[",
+            TokenType::RBRACKET => "]",
+
             TokenType::FUNCTION => "FUNCTION",
             TokenType::LET => "LET",
             TokenType::IF => "IF",
