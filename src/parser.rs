@@ -63,6 +63,7 @@ impl<'a> Parser<'a> {
         p.register_prefix(TokenType::IF, parse_if_expression);
         p.register_prefix(TokenType::FUNCTION, parse_function_literal);
         p.register_prefix(TokenType::STRING, parse_string_literal);
+        p.register_prefix(TokenType::LBRACKET, parse_array_literal);
 
         // 注册中缀解析函数
         p.register_infix(TokenType::PLUS, parse_infix_expression);
@@ -317,6 +318,12 @@ fn parse_string_literal(parser: &mut Parser) -> Option<Box<dyn Expression>> {
     Some(literal)
 }
 
+fn parse_array_literal(parser: &mut Parser) -> Option<Box<dyn Expression>> {
+    let mut array = crate::ast::ArrayLiteral::new(parser.cur_token.clone());
+    array.elements = parse_expression_list(parser, TokenType::RBRACKET);
+    Some(Box::new(array))
+}
+
 fn parse_prefix_expression(parser: &mut Parser) -> Option<Box<dyn Expression>> {
     // 这里可以实现前缀表达式的解析逻辑
     // 例如处理 !5 或 -15 等
@@ -536,6 +543,44 @@ fn parse_call_arguments(parser: &mut Parser) -> Vec<Box<dyn Expression>> {
     }
 
     args
+}
+
+fn parse_expression_list(parser: &mut Parser, end: TokenType) -> Vec<Box<dyn Expression>> {
+    let mut list = Vec::new();
+
+    if parser.peek_token_is(end) {
+        parser.next_token(); // 跳过结束符
+        return list; // 如果没有元素，直接返回空列表
+    }
+
+    parser.next_token();
+
+    loop {
+        let expr = parser.parse_expression(LOWEST);
+        if let Some(expression) = expr {
+            list.push(expression);
+        } else {
+            parser.add_error("无法解析表达式列表".to_string());
+            return list; // 如果解析失败，返回已解析的列表
+        }
+
+        if parser.peek_token_is(end) {
+            break;
+        }
+
+        if !parser.peek_token_is(TokenType::COMMA) {
+            break; // 如果没有逗号，返回已解析的列表
+        }
+
+        parser.next_token(); // 跳过逗号
+        parser.next_token(); // 移动到下一个表达式
+    }
+
+    if !parser.expect_peek(end) {
+        return list; // 如果没有正确的结束符，返回已解析的列表
+    }
+
+    list
 }
 
 #[cfg(test)]
@@ -1283,6 +1328,32 @@ return x + y + 2;
             Some(string_literal) => {
                 assert_eq!(string_literal.value, "hello world");
                 assert_eq!(string_literal.token_literal(), "hello world");
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_array_literals() {
+        let input = r#"
+        [1, 2 * 2, 3 + 3]
+        "#;
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        assert_eq!(program.statements.len(), 1);
+
+        let expression = program.statements.first().unwrap().as_expression_statement();
+
+        match expression.unwrap().expression.as_ref().unwrap().as_array_literal() {
+            None => panic!("expression is not ArrayLiteral"),
+            Some(array_literal) => {
+                assert_eq!(array_literal.elements.len(), 3);
+
+                test_integer_literal(&array_literal.elements[0], 1);
+                test_infix_expression(&*array_literal.elements[1], &2i64, "*", &2i64);
+                test_infix_expression(&*array_literal.elements[2], &3i64, "+", &3i64);
             }
         }
     }

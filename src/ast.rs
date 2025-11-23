@@ -1,6 +1,7 @@
 use std::any::Any;
 use crate::token::{Token};
 use std::fmt;
+use std::fmt::{Display, Formatter};
 
 pub trait Node: Any {
     fn token_literal(&self) -> String;
@@ -55,6 +56,7 @@ pub trait Expression: Node + fmt::Debug + fmt::Display {
     }
 
     fn clone_box(&self) -> Box<dyn Expression>;
+    fn as_array_literal(&self) -> Option<&ArrayLiteral> {None}
 }
 
 pub struct Program {
@@ -523,7 +525,7 @@ impl Node for BlockStatement {
     }
 }
 
-impl fmt::Display for BlockStatement {
+impl Display for BlockStatement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut out = String::new();
         for statement in &self.statements {
@@ -649,6 +651,59 @@ impl fmt::Display for CallExpression {
     }
 }
 
+#[derive(Debug)]
+pub struct ArrayLiteral {
+    pub token: Token,
+    pub elements: Vec<Box<dyn Expression>>,
+}
+
+impl ArrayLiteral {
+    pub fn new(token: Token) -> Self {
+        ArrayLiteral {
+            token,
+            elements: vec![],
+        }
+    }
+}
+
+impl Node for ArrayLiteral {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl Display for ArrayLiteral {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let mut out = String::new();
+        out.push_str("[");
+        for (i, element) in self.elements.iter().enumerate() {
+            out.push_str(&element.to_string());
+            if i < self.elements.len() - 1 {
+                out.push_str(", ");
+            }
+        }
+        out.push_str("]");
+        write!(f, "{}", out)
+    }
+}
+
+impl Expression for ArrayLiteral {
+    fn clone_box(&self) -> Box<dyn Expression> {
+        let array_literal = ArrayLiteral {
+            token: self.token.clone(),
+            elements: self.elements.iter()
+                .map(|e| e.clone_box())
+                .collect(),
+        };
+        Box::new(array_literal)
+    }
+    fn as_array_literal(&self) -> Option<&ArrayLiteral> {
+        Some(self)
+    }
+}
 
 #[cfg(test)]
 mod tests {
