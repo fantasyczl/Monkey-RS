@@ -57,6 +57,7 @@ pub trait Expression: Node + fmt::Debug + fmt::Display {
 
     fn clone_box(&self) -> Box<dyn Expression>;
     fn as_array_literal(&self) -> Option<&ArrayLiteral> {None}
+    fn as_index_expression(&self) -> Option<&IndexExpression> {None}
 }
 
 pub struct Program {
@@ -702,6 +703,53 @@ impl Expression for ArrayLiteral {
     }
     fn as_array_literal(&self) -> Option<&ArrayLiteral> {
         Some(self)
+    }
+}
+
+#[derive(Debug)]
+pub struct IndexExpression {
+    pub token: Token,
+    pub left: Box<dyn Expression>,
+    pub index: Box<dyn Expression>,
+}
+
+impl IndexExpression {
+    pub fn new(token: Token, left: Box<dyn Expression>) -> Self {
+        IndexExpression {
+            token,
+            left,
+            index: Box::new(Identifier::default()),
+        }
+    }
+
+}
+
+impl Node for IndexExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl Expression for IndexExpression {
+    fn clone_box(&self) -> Box<dyn Expression> {
+        let index_expression = IndexExpression {
+            token: self.token.clone(),
+            left: self.left.clone_box(),
+            index: self.index.clone_box(),
+        };
+        Box::new(index_expression)
+    }
+    fn as_index_expression(&self) -> Option<&IndexExpression> {
+        Some(self)
+    }
+}
+
+impl Display for IndexExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}[{}])", self.left.to_string(), self.index.to_string())
     }
 }
 

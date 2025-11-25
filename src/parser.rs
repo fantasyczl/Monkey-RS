@@ -14,6 +14,7 @@ const SUM: i32 = 3; // + or -
 const PRODUCT: i32 = 4; // * or /
 const PREFIX: i32 = 5; // -X or !X
 const CALL: i32 = 6; // myFunction(X)
+const INDEX: i32 = 7; // array[index]
 
 // 定义操作符的优先级
 static PRECEDENCES: Lazy<HashMap<TokenType, i32>> = Lazy::new(|| {
@@ -27,6 +28,7 @@ static PRECEDENCES: Lazy<HashMap<TokenType, i32>> = Lazy::new(|| {
         (TokenType::SLASH, PRODUCT),
         (TokenType::ASTERISK, PRODUCT),
         (TokenType::LPAREN, CALL),
+        (TokenType::LBRACKET, INDEX),
     ])
 });
 
@@ -75,6 +77,7 @@ impl<'a> Parser<'a> {
         p.register_infix(TokenType::LT, parse_infix_expression);
         p.register_infix(TokenType::GT, parse_infix_expression);
         p.register_infix(TokenType::LPAREN, parse_call_expression);
+        p.register_infix(TokenType::LBRACKET, parse_index_expression);
 
         // 读取两个词法单元，以设置 cur_token 和 peek_token
         p.next_token();
@@ -510,6 +513,28 @@ fn parse_call_expression(left: Box<dyn Expression>, parser: &mut Parser) -> Box<
     call_expr.arguments = parse_call_arguments(parser);
 
     call_expr
+}
+
+fn parse_index_expression(left: Box<dyn Expression>, parser: &mut Parser) -> Box<dyn Expression> {
+    let mut exp = Box::new(crate::ast::IndexExpression::new(
+        parser.cur_token.clone(),
+        left,
+    ));
+    parser.next_token(); // 跳过左中括号
+    match  parser.parse_expression(LOWEST) {
+        Some(index) => {
+            exp.index = index
+        },
+        None => {
+            parser.add_error("无法解析索引表达式的索引".to_string())
+        }
+    }
+
+    if !parser.expect_peek(TokenType::RBRACKET) {
+        return exp;
+    }
+
+    exp
 }
 
 fn parse_call_arguments(parser: &mut Parser) -> Vec<Box<dyn Expression>> {
@@ -1023,6 +1048,8 @@ return x + y + 2;
             TestCase{input: "a + add(b * c) + d", expected: "((a + add((b * c))) + d)"},
             TestCase{input: "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 5))", expected: "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 5)))"},
             TestCase{input: "add(a + b + c * d / e - f + g)", expected: "add(((((a + b) + ((c * d) / e)) - f) + g))"},
+            TestCase{input: "a * [1, 2, 3, 4][b * c] * d", expected: "((a * ([1, 2, 3, 4][(b * c)])) * d)"},
+            TestCase{input: "add(a * b[2], b[1], 2 * [1, 2][1])", expected: "add((a * (b[2])), (b[1]), (2 * ([1, 2][1])))"},
         ];
 
         for test in tests {
@@ -1354,6 +1381,29 @@ return x + y + 2;
                 test_integer_literal(&array_literal.elements[0], 1);
                 test_infix_expression(&*array_literal.elements[1], &2i64, "*", &2i64);
                 test_infix_expression(&*array_literal.elements[2], &3i64, "+", &3i64);
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_index_expressions() {
+        let input = r#"
+        myArray[1 + 1]
+        "#;
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        assert_eq!(program.statements.len(), 1);
+
+        let expression = program.statements.first().unwrap().as_expression_statement();
+
+        match expression.unwrap().expression.as_ref().unwrap().as_index_expression() {
+            None => panic!("expression is not IndexExpression"),
+            Some(index_expression) => {
+                test_identifier(&index_expression.left, "myArray");
+                test_infix_expression(&*index_expression.index, &1i64, "+", &1i64);
             }
         }
     }
