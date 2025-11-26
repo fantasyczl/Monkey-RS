@@ -118,6 +118,25 @@ pub fn eval(node: &dyn Node, env: &Rc<RefCell<object::Environment>>) -> Option<B
         }
 
         return apply_function(&function.unwrap(), args);
+    } else if let Some(array_literal) = node.as_any().downcast_ref::<crate::ast::ArrayLiteral>() {
+        let elements = eval_expressions(&array_literal.elements, env);
+        if elements.len() == 1 && is_error(&Some(elements[0].clone())) {
+            return elements.first().cloned();
+        }
+
+        return Some(Box::new(object::Array { elements }));
+    } else if let Some(index_expr) = node.as_any().downcast_ref::<crate::ast::IndexExpression>() {
+        let left = eval(index_expr.left.as_ref(), env);
+        if is_error(&left) {
+            return left;
+        }
+
+        let index = eval(index_expr.index.as_ref(), env);
+        if is_error(&index) {
+            return index;
+        }
+
+        return eval_index_expression(left, index);
     }
 
     Some(Box::new(NULL_OBJ))
@@ -451,6 +470,37 @@ fn eval_expressions(
     }
 
     args
+}
+
+fn eval_index_expression(
+    left: Option<Box<dyn Object>>,
+    index: Option<Box<dyn Object>>,
+) -> Option<Box<dyn Object>> {
+    if let (Some(left_obj), Some(index_obj)) = (left, index) {
+        return if let Some(array_obj) = left_obj.as_array() {
+            if let Some(index_int) = index_obj.as_integer() {
+                let idx = index_int.value;
+                let max = array_obj.elements.len() as i64 - 1;
+
+                if idx < 0 || idx > max {
+                    return Some(Box::new(NULL_OBJ));
+                }
+
+                Some(array_obj.elements[idx as usize].clone_box())
+            } else {
+                Some(new_error!(
+                    "index operator not supported: {}",
+                    index_obj.type_name()
+                ))
+            }
+        } else {
+            Some(new_error!(
+                "index operator not supported: {}",
+                left_obj.type_name()
+            ))
+        }
+    }
+    None
 }
 
 fn apply_function(
@@ -1103,6 +1153,79 @@ mod tests {
                         expected_err, error_obj.message
                     );
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn test_array_literals() {
+        let input = "[1, 2 * 2, 3 + 3]";
+
+        let evaluated = test_eval(input);
+        assert!(evaluated.is_some(), "Expected an object, but got None");
+        let evaluated = evaluated.unwrap();
+        assert_eq!(evaluated.type_name(), object::ARRAY_OBJ);
+
+        let array = evaluated.as_array().unwrap();
+        assert_eq!(array.elements.len(), 3);
+
+        test_integer_object(Some(array.elements[0].clone_box()), 1);
+        test_integer_object(Some(array.elements[1].clone_box()), 4);
+        test_integer_object(Some(array.elements[2].clone_box()), 6);
+
+    }
+
+    #[test]
+    fn test_index_expressions() {
+        struct Case {
+            input: &'static str,
+            expected: Option<i64>,
+        }
+
+        let tests = vec![
+            Case {
+                input: "[1, 2, 3][0]",
+                expected: Some(1),
+            },
+            Case {
+                input: "[1, 2, 3][1]",
+                expected: Some(2),
+            },
+            Case {
+                input: "[1, 2, 3][2]",
+                expected: Some(3),
+            },
+            Case {
+                input: "let i = 0; [1][i];",
+                expected: Some(1),
+            },
+            Case {
+                input: "[1, 2, 3][1 + 1];",
+                expected: Some(3),
+            },
+            Case {
+                input: "let myArray = [1, 2, 3]; myArray[2];",
+                expected: Some(3),
+            },
+            Case {
+                input: "[1, 2, 3][3];",
+                expected: None,
+            },
+            Case {
+                input: "[1, 2, 3][-1];",
+                expected: None,
+            },
+        ];
+
+        for test in tests {
+            println!("Testing input: {}", test.input);
+            let object = test_eval(test.input);
+            if let Some(expected_value) = test.expected {
+                test_integer_object(object, expected_value);
+            } else {
+                assert!(object.is_some(), "Expected an object, but got None");
+                let object = object.unwrap();
+                test_null_object(&object);
             }
         }
     }

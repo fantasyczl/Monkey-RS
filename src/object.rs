@@ -13,6 +13,7 @@ pub const ERROR_OBJ: &str = "Error";
 pub const FUNCTION_OBJ: &str = "Function";
 pub const STRING_OBJ: &str = "String";
 pub const BUILTIN_OBJ: &str = "Builtin";
+pub const ARRAY_OBJ: &str = "Array";
 
 type ObjectType = String;
 
@@ -44,6 +45,7 @@ pub trait Object {
     fn as_builtin(&self) -> Option<&Builtin> {
         None
     }
+    fn as_array(&self) -> Option<&Array> {None}
 }
 
 #[derive(Debug, Clone)]
@@ -304,6 +306,35 @@ impl Object for Builtin {
         Box::new(self.clone())
     }
     fn as_builtin(&self) -> Option<&Builtin> {
+        Some(self)
+    }
+}
+
+#[derive(Clone)]
+pub struct Array {
+    pub elements: Vec<Box<dyn Object>>,
+}
+
+impl Object for Array {
+    fn type_name(&self) -> ObjectType {
+        ARRAY_OBJ.into()
+    }
+
+    fn inspect(&self) -> String {
+        let mut out = String::new();
+        out.push('[');
+        let elements: Vec<String> = self.elements.iter().
+            map(|e| e.inspect()).collect();
+        out.push_str(&elements.join(", "));
+        out.push(']');
+        out
+    }
+
+    fn clone_box(&self) -> Box<dyn Object> {
+        Box::new(self.clone())
+    }
+
+    fn as_array(&self) -> Option<&Array> {
         Some(self)
     }
 }
