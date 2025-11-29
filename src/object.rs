@@ -14,6 +14,7 @@ pub const FUNCTION_OBJ: &str = "Function";
 pub const STRING_OBJ: &str = "String";
 pub const BUILTIN_OBJ: &str = "Builtin";
 pub const ARRAY_OBJ: &str = "Array";
+pub const HASH_OBJ: &str = "Hash";
 
 type ObjectType = String;
 
@@ -381,9 +382,40 @@ impl Object for Array {
     }
 }
 
-pub struct Hash {
-    pub pairs: std::collections::HashMap<Box<dyn Object>, Box<dyn Object>>,
+#[derive(Clone)]
+pub struct HashPair {
+    pub key: Box<dyn Object>,
+    pub value: Box<dyn Object>,
 }
+
+#[derive(Clone)]
+pub struct Hash {
+    pub pairs: std::collections::HashMap<HashKey, HashPair>,
+}
+
+impl Object for Hash {
+    fn type_name(&self) -> ObjectType {
+        HASH_OBJ.into()
+    }
+
+    fn inspect(&self) -> String {
+        let mut out = String::new();
+        out.push('{');
+        let mut pairs: Vec<String> = Vec::new();
+        for pair in self.pairs.values() {
+            let pair_str = format!("{}: {}", pair.key.inspect(), pair.value.inspect());
+            pairs.push(pair_str);
+        }
+        out.push_str(&pairs.join(", "));
+        out.push('}');
+        out
+    }
+
+    fn clone_box(&self) -> Box<dyn Object> {
+        Box::new(self.clone())
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
