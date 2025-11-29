@@ -119,6 +119,31 @@ fn rest_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
     }
 }
 
+fn push_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
+    if args.len() != 2 {
+        return Some(new_error!(
+            "wrong number of arguments. got={}, want=2",
+            args.len()
+        ));
+    }
+
+    let array_arg = &args[0];
+    let element_arg = &args[1];
+
+    if let Some(array_obj) = array_arg.as_array() {
+        let mut new_elements = array_obj.elements.clone();
+        new_elements.push(element_arg.clone_box());
+        Some(Box::new(object::Array {
+            elements: new_elements,
+        }))
+    } else {
+        Some(new_error!(
+            "first argument to `push` must be ARRAY, got {}",
+            array_arg.type_name()
+        ))
+    }
+}
+
 // 全局内置函数映射，惰性初始化
 static BUILTINS: Lazy<HashMap<&'static str, object::Builtin>> = Lazy::new(|| {
     let mut m = HashMap::new();
@@ -126,6 +151,7 @@ static BUILTINS: Lazy<HashMap<&'static str, object::Builtin>> = Lazy::new(|| {
     m.insert("first", object::Builtin { func: first_builtin });
     m.insert("last", object::Builtin { func: last_builtin });
     m.insert("rest", object::Builtin { func: rest_builtin });
+    m.insert("push", object::Builtin { func: push_builtin });
     m
 });
 
