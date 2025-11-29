@@ -35,9 +35,36 @@ fn len_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
         Some(Box::new(object::Integer {
             value: string_obj.value.len() as i64,
         }))
+    } else if let Some(array_obj) = arg.as_array() {
+        Some(Box::new(object::Integer {
+            value: array_obj.elements.len() as i64,
+        }))
     } else {
         Some(new_error!(
             "argument to `len` not supported, got {}",
+            arg.type_name()
+        ))
+    }
+}
+
+fn first_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
+    if args.len() != 1 {
+        return Some(new_error!(
+            "wrong number of arguments. got={}, want=1",
+            args.len()
+        ));
+    }
+
+    let arg = &args[0];
+    if let Some(array_obj) = arg.as_array() {
+        if !array_obj.elements.is_empty() {
+            return Some(array_obj.elements[0].clone_box());
+        } else {
+            return Some(Box::new(NULL_OBJ));
+        }
+    } else {
+        Some(new_error!(
+            "argument to `first` must be ARRAY, got {}",
             arg.type_name()
         ))
     }
@@ -47,6 +74,7 @@ fn len_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
 static BUILTINS: Lazy<HashMap<&'static str, object::Builtin>> = Lazy::new(|| {
     let mut m = HashMap::new();
     m.insert("len", object::Builtin { func: len_builtin });
+    m.insert("first", object::Builtin { func: first_builtin });
     m
 });
 
