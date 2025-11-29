@@ -93,12 +93,39 @@ fn last_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
     }
 }
 
+fn rest_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
+    if args.len() != 1 {
+        return Some(new_error!(
+            "wrong number of arguments. got={}, want=1",
+            args.len()
+        ));
+    }
+
+    let arg = &args[0];
+    if let Some(array_obj) = arg.as_array() {
+        if array_obj.elements.len() > 1 {
+            let new_elements = array_obj.elements[1..].to_vec();
+            Some(Box::new(object::Array {
+                elements: new_elements,
+            }))
+        } else {
+            Some(Box::new(NULL_OBJ))
+        }
+    } else {
+        Some(new_error!(
+            "argument to `rest` must be ARRAY, got {}",
+            arg.type_name()
+        ))
+    }
+}
+
 // 全局内置函数映射，惰性初始化
 static BUILTINS: Lazy<HashMap<&'static str, object::Builtin>> = Lazy::new(|| {
     let mut m = HashMap::new();
     m.insert("len", object::Builtin { func: len_builtin });
     m.insert("first", object::Builtin { func: first_builtin });
     m.insert("last", object::Builtin { func: last_builtin });
+    m.insert("rest", object::Builtin { func: rest_builtin });
     m
 });
 
