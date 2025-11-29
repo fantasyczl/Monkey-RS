@@ -753,6 +753,48 @@ impl Display for IndexExpression {
     }
 }
 
+#[derive(Debug)]
+pub struct HashLiteral {
+    pub token: Token,
+    pub pairs: Vec<(Box<dyn Expression>, Box<dyn Expression>)>,
+}
+
+impl Node for HashLiteral {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl Display for HashLiteral {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let mut out = String::new();
+        out.push_str("{");
+        for (i, (key, value)) in self.pairs.iter().enumerate() {
+            out.push_str(&format!("{}: {}", key.to_string(), value.to_string()));
+            if i < self.pairs.len() - 1 {
+                out.push_str(", ");
+            }
+        }
+        out.push_str("}");
+        write!(f, "{}", out)
+    }
+}
+
+impl Expression for HashLiteral {
+    fn clone_box(&self) -> Box<dyn Expression> {
+        let hash_literal = HashLiteral {
+            token: self.token.clone(),
+            pairs: self.pairs.iter()
+                .map(|(k, v)| (k.clone_box(), v.clone_box()))
+                .collect(),
+        };
+        Box::new(hash_literal)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
