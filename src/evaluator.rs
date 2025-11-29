@@ -70,11 +70,35 @@ fn first_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
     }
 }
 
+fn last_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
+    if args.len() != 1 {
+        return Some(new_error!(
+            "wrong number of arguments. got={}, want=1",
+            args.len()
+        ));
+    }
+
+    let arg = &args[0];
+    if let Some(array_obj) = arg.as_array() {
+        if !array_obj.elements.is_empty() {
+            Some(array_obj.elements[array_obj.elements.len() - 1].clone_box())
+        } else {
+            Some(Box::new(NULL_OBJ))
+        }
+    } else {
+        Some(new_error!(
+            "argument to `last` must be ARRAY, got {}",
+            arg.type_name()
+        ))
+    }
+}
+
 // 全局内置函数映射，惰性初始化
 static BUILTINS: Lazy<HashMap<&'static str, object::Builtin>> = Lazy::new(|| {
     let mut m = HashMap::new();
     m.insert("len", object::Builtin { func: len_builtin });
     m.insert("first", object::Builtin { func: first_builtin });
+    m.insert("last", object::Builtin { func: last_builtin });
     m
 });
 
