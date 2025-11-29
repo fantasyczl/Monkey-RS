@@ -17,6 +17,12 @@ pub const ARRAY_OBJ: &str = "Array";
 
 type ObjectType = String;
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct HashKey {
+    pub tp: ObjectType,
+    pub value: u64,
+}
+
 pub trait Object {
     fn type_name(&self) -> ObjectType;
 
@@ -46,6 +52,9 @@ pub trait Object {
         None
     }
     fn as_array(&self) -> Option<&Array> {None}
+    fn hash_key(&self) -> HashKey {
+        HashKey {tp: self.type_name(), value: 0}
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -63,9 +72,14 @@ impl Object for Integer {
     fn clone_box(&self) -> Box<dyn Object> {
         Box::new(self.clone())
     }
-
     fn as_integer(&self) -> Option<Integer> {
         Some(self.clone())
+    }
+    fn hash_key(&self) -> HashKey {
+        HashKey {
+            tp: self.type_name(),
+            value: self.value as u64,
+        }
     }
 }
 
@@ -84,9 +98,15 @@ impl Object for Boolean {
     fn clone_box(&self) -> Box<dyn Object> {
         Box::new(self.clone())
     }
-
     fn as_boolean(&self) -> Option<Boolean> {
         Some(self.clone())
+    }
+    fn hash_key(&self) -> HashKey {
+        let value = if self.value { 1 } else { 0 };
+        HashKey {
+            tp: self.type_name(),
+            value,
+        }
     }
 }
 
@@ -102,6 +122,12 @@ impl Object for Null {
     }
     fn clone_box(&self) -> Box<dyn Object> {
         Box::new(self.clone())
+    }
+    fn hash_key(&self) -> HashKey {
+        HashKey {
+            tp: self.type_name(),
+            value: 0,
+        }
     }
 }
 
@@ -261,6 +287,12 @@ impl Object for Function {
     fn as_function(&self) -> Option<&Function> {
         Some(self)
     }
+    fn hash_key(&self) -> HashKey {
+        HashKey {
+            tp: self.type_name(),
+            value: 0,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -283,6 +315,16 @@ impl Object for STRING {
 
     fn as_string(&self) -> Option<&STRING> {
         Some(self)
+    }
+    fn hash_key(&self) -> HashKey {
+        let mut hash: u64 = 5381;
+        for byte in self.value.as_bytes() {
+            hash = ((hash << 5).wrapping_add(hash)).wrapping_add(*byte as u64);
+        }
+        HashKey {
+            tp: self.type_name(),
+            value: hash,
+        }
     }
 }
 
@@ -336,5 +378,44 @@ impl Object for Array {
 
     fn as_array(&self) -> Option<&Array> {
         Some(self)
+    }
+}
+
+pub struct Hash {
+    pub pairs: std::collections::HashMap<Box<dyn Object>, Box<dyn Object>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_string_hash_key() {
+        let s1 = STRING {
+            value: "Hello World".to_string(),
+        };
+        let s2 = STRING {
+            value: "Hello World".to_string(),
+        };
+        let diff1 = STRING {
+            value: "My name is johnny".to_string(),
+        };
+        let diff2 = STRING {
+            value: "My name is johnny".to_string(),
+        };
+
+        if s1.hash_key() == s2.hash_key() {
+            assert!(true);
+        } else {
+            assert!(false, "strings with same content have different hash keys");
+        }
+
+        if diff1.hash_key() == diff2.hash_key() {
+            assert!(true);
+        } else {
+            assert!(false, "strings with same content have different hash keys");
+        }
+
+        assert_ne!(s1.hash_key(), diff1.hash_key());
     }
 }
