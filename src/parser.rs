@@ -66,6 +66,7 @@ impl<'a> Parser<'a> {
         p.register_prefix(TokenType::FUNCTION, parse_function_literal);
         p.register_prefix(TokenType::STRING, parse_string_literal);
         p.register_prefix(TokenType::LBRACKET, parse_array_literal);
+        p.register_prefix(TokenType::LBRACE, parse_hash_literal);
 
         // 注册中缀解析函数
         p.register_infix(TokenType::PLUS, parse_infix_expression);
@@ -325,6 +326,35 @@ fn parse_array_literal(parser: &mut Parser) -> Option<Box<dyn Expression>> {
     let mut array = crate::ast::ArrayLiteral::new(parser.cur_token.clone());
     array.elements = parse_expression_list(parser, TokenType::RBRACKET);
     Some(Box::new(array))
+}
+
+fn parse_hash_literal(parser: &mut Parser) -> Option<Box<dyn Expression>> {
+    // 这里可以实现哈希字面量的解析逻辑
+    let mut hash = crate::ast::HashLiteral::new(parser.cur_token.clone());
+    while !parser.peek_token_is(TokenType::RBRACE) {
+        parser.next_token(); // 移动到键
+        let key = parser.parse_expression(LOWEST);
+        if !parser.expect_peek(TokenType::COLON) {
+            return None;
+        }
+        parser.next_token(); // 移动到值
+        let value = parser.parse_expression(LOWEST);
+        if let (Some(k), Some(v)) = (key, value) {
+            hash.pairs.push((k, v));
+        } else {
+            parser.add_error("无法解析哈希字面量的键值对".to_string());
+            return None;
+        }
+
+        if !parser.peek_token_is(TokenType::RBRACE) && !parser.expect_peek(TokenType::COMMA) {
+            return None;
+        }
+    }
+
+    if !parser.expect_peek(TokenType::RBRACE) {
+        return None;
+    }
+    Some(Box::new(hash))
 }
 
 fn parse_prefix_expression(parser: &mut Parser) -> Option<Box<dyn Expression>> {

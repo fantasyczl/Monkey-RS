@@ -760,6 +760,15 @@ pub struct HashLiteral {
     pub pairs: Vec<(Box<dyn Expression>, Box<dyn Expression>)>,
 }
 
+impl HashLiteral {
+    pub fn new(token: Token) -> Self {
+        HashLiteral {
+            token,
+            pairs: vec![],
+        }
+    }
+}
+
 impl Node for HashLiteral {
     fn token_literal(&self) -> String {
         self.token.literal.clone()
@@ -793,6 +802,9 @@ impl Expression for HashLiteral {
                 .collect(),
         };
         Box::new(hash_literal)
+    }
+    fn as_hash_literal(&self) -> Option<&HashLiteral> {
+        Some(self)
     }
 }
 
