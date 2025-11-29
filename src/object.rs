@@ -24,6 +24,10 @@ pub struct HashKey {
     pub value: u64,
 }
 
+pub trait Hashable {
+    fn hash_key(&self) -> HashKey;
+}
+
 pub trait Object {
     fn type_name(&self) -> ObjectType;
 
@@ -53,9 +57,6 @@ pub trait Object {
         None
     }
     fn as_array(&self) -> Option<&Array> {None}
-    fn hash_key(&self) -> HashKey {
-        HashKey {tp: self.type_name(), value: 0}
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -76,6 +77,9 @@ impl Object for Integer {
     fn as_integer(&self) -> Option<Integer> {
         Some(self.clone())
     }
+}
+
+impl Hashable for Integer {
     fn hash_key(&self) -> HashKey {
         HashKey {
             tp: self.type_name(),
@@ -102,6 +106,9 @@ impl Object for Boolean {
     fn as_boolean(&self) -> Option<Boolean> {
         Some(self.clone())
     }
+}
+
+impl Hashable for Boolean {
     fn hash_key(&self) -> HashKey {
         let value = if self.value { 1 } else { 0 };
         HashKey {
@@ -123,12 +130,6 @@ impl Object for Null {
     }
     fn clone_box(&self) -> Box<dyn Object> {
         Box::new(self.clone())
-    }
-    fn hash_key(&self) -> HashKey {
-        HashKey {
-            tp: self.type_name(),
-            value: 0,
-        }
     }
 }
 
@@ -288,12 +289,6 @@ impl Object for Function {
     fn as_function(&self) -> Option<&Function> {
         Some(self)
     }
-    fn hash_key(&self) -> HashKey {
-        HashKey {
-            tp: self.type_name(),
-            value: 0,
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -317,6 +312,9 @@ impl Object for STRING {
     fn as_string(&self) -> Option<&STRING> {
         Some(self)
     }
+}
+
+impl Hashable for STRING {
     fn hash_key(&self) -> HashKey {
         let mut hash: u64 = 5381;
         for byte in self.value.as_bytes() {
