@@ -1407,4 +1407,98 @@ return x + y + 2;
             }
         }
     }
+
+    #[test]
+    fn test_parsing_hash_literals_string_keys() {
+        let input = r#"
+        {"one": 1, "two": 2, "three": 3}
+        "#;
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        assert_eq!(program.statements.len(), 1);
+
+        let expression = program.statements.first().unwrap().as_expression_statement();
+
+        match expression.unwrap().expression.as_ref().unwrap().as_hash_literal() {
+            None => panic!("expression is not HashLiteral"),
+            Some(hash_literal) => {
+                assert_eq!(hash_literal.pairs.len(), 3);
+
+                for (key, value) in &hash_literal.pairs {
+                    match key.as_string_literal() {
+                        None => panic!("key is not StringLiteral"),
+                        Some(string_literal) => {
+                            match string_literal.value.as_str() {
+                                "one" => test_integer_literal(value, 1),
+                                "two" => test_integer_literal(value, 2),
+                                "three" => test_integer_literal(value, 3),
+                                _ => panic!("unexpected key in hash: {}", string_literal.value),
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_empty_hash_literal() {
+        let input = r#"
+        {}
+        "#;
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        assert_eq!(program.statements.len(), 1);
+
+        let expression = program.statements.first().unwrap().as_expression_statement();
+
+        match expression.unwrap().expression.as_ref().unwrap().as_hash_literal() {
+            None => panic!("expression is not HashLiteral"),
+            Some(hash_literal) => {
+                assert_eq!(hash_literal.pairs.len(), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_hash_literals_with_expressions() {
+        let input = r#"
+        {"one": 0 + 1, "two": 10 - 8, "three": 15 / 5}
+        "#;
+
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        assert_eq!(program.statements.len(), 1);
+
+        let expression = program.statements.first().unwrap().as_expression_statement();
+
+        match expression.unwrap().expression.as_ref().unwrap().as_hash_literal() {
+            None => panic!("expression is not HashLiteral"),
+            Some(hash_literal) => {
+                assert_eq!(hash_literal.pairs.len(), 3);
+
+                for (key, value) in &hash_literal.pairs {
+                    match key.as_string_literal() {
+                        None => panic!("key is not StringLiteral"),
+                        Some(string_literal) => {
+                            match string_literal.value.as_str() {
+                                "one" => test_infix_expression(&**value, &0i64, "+", &1i64),
+                                "two" => test_infix_expression(&**value, &10i64, "-", &8i64),
+                                "three" => test_infix_expression(&**value, &15i64, "/", &5i64),
+                                _ => panic!("unexpected key in hash: {}", string_literal.value),
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

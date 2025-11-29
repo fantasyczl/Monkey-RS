@@ -58,6 +58,7 @@ pub trait Expression: Node + fmt::Debug + fmt::Display {
     fn clone_box(&self) -> Box<dyn Expression>;
     fn as_array_literal(&self) -> Option<&ArrayLiteral> {None}
     fn as_index_expression(&self) -> Option<&IndexExpression> {None}
+    fn as_hash_literal(&self) -> Option<&HashLiteral> {None}
 }
 
 pub struct Program {
