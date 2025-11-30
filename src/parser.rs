@@ -1186,7 +1186,7 @@ return x + y + 2;
         if (x < y) { x } else { y }
         "#;
 
-        let program = base_parse(input);
+        let program = init_comm_parse(input);
 
         match program.statements.get(0).unwrap().as_expression_statement() {
             None => panic!("statement is not ExpressionStatement"),
@@ -1368,7 +1368,7 @@ return x + y + 2;
         "hello world"
         "#;
 
-        let program = base_parse(input);
+        let program = init_comm_parse(input);
 
         let expression = program.statements.first().unwrap().as_expression_statement();
 
@@ -1387,7 +1387,7 @@ return x + y + 2;
         [1, 2 * 2, 3 + 3]
         "#;
 
-        let program = base_parse(input);
+        let program = init_comm_parse(input);
 
         let expression = program.statements.first().unwrap().as_expression_statement();
 
@@ -1409,7 +1409,7 @@ return x + y + 2;
         myArray[1 + 1]
         "#;
 
-        let program = base_parse(input);
+        let program = init_comm_parse(input);
 
         let expression = program.statements.first().unwrap().as_expression_statement();
 
@@ -1428,7 +1428,7 @@ return x + y + 2;
         {"one": 1, "two": 2, "three": 3}
         "#;
 
-        let program = base_parse(input);
+        let program = init_comm_parse(input);
 
         let expression = program.statements.first().unwrap().as_expression_statement();
 
@@ -1460,7 +1460,7 @@ return x + y + 2;
         {}
         "#;
 
-        let program = base_parse(input);
+        let program = init_comm_parse(input);
 
         let expression = program.statements.first().unwrap().as_expression_statement();
 
@@ -1478,7 +1478,7 @@ return x + y + 2;
         {"one": 0 + 1, "two": 10 - 8, "three": 15 / 5}
         "#;
 
-        let program = base_parse(input);
+        let program = init_comm_parse(input);
 
         let expression = program.statements.first().unwrap().as_expression_statement();
 
@@ -1504,7 +1504,7 @@ return x + y + 2;
         }
     }
 
-    fn base_parse(input: &str) -> Program {
+    fn init_comm_parse(input: &str) -> Program {
         let mut l = Lexer::new(input);
         let mut p = Parser::new(&mut l);
         let program = p.parse_program();
