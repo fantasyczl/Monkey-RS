@@ -144,19 +144,22 @@ fn push_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
     }
 }
 
+fn puts_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
+    for arg in args.iter() {
+        println!("{}", arg.inspect());
+    }
+    Some(Box::new(NULL_OBJ))
+}
+
 // 全局内置函数映射，惰性初始化
 static BUILTINS: Lazy<HashMap<&'static str, object::Builtin>> = Lazy::new(|| {
     let mut m = HashMap::new();
     m.insert("len", object::Builtin { func: len_builtin });
-    m.insert(
-        "first",
-        object::Builtin {
-            func: first_builtin,
-        },
-    );
+    m.insert("first",object::Builtin {func: first_builtin });
     m.insert("last", object::Builtin { func: last_builtin });
     m.insert("rest", object::Builtin { func: rest_builtin });
     m.insert("push", object::Builtin { func: push_builtin });
+    m.insert("puts", object::Builtin { func: puts_builtin });
     m
 });
 
