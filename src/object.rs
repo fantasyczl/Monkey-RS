@@ -58,6 +58,9 @@ pub trait Object {
     }
     fn as_array(&self) -> Option<&Array> {None}
     fn as_hash(&self) -> Option<&Hash> {None}
+    fn as_hashable(&self) -> Option<&dyn Hashable> {
+        None
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -77,6 +80,9 @@ impl Object for Integer {
     }
     fn as_integer(&self) -> Option<Integer> {
         Some(self.clone())
+    }
+    fn as_hashable(&self) -> Option<&dyn Hashable> {
+        Some(self)
     }
 }
 
@@ -106,6 +112,9 @@ impl Object for Boolean {
     }
     fn as_boolean(&self) -> Option<Boolean> {
         Some(self.clone())
+    }
+    fn as_hashable(&self) -> Option<&dyn Hashable> {
+        Some(self)
     }
 }
 
@@ -311,6 +320,9 @@ impl Object for STRING {
     }
 
     fn as_string(&self) -> Option<&STRING> {
+        Some(self)
+    }
+    fn as_hashable(&self) -> Option<&dyn Hashable> {
         Some(self)
     }
 }

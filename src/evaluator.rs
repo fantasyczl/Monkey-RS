@@ -246,6 +246,8 @@ pub fn eval(node: &dyn Node, env: &Rc<RefCell<object::Environment>>) -> Option<B
         }
 
         return eval_index_expression(left, index);
+    } else if let Some(hash) = node.as_any().downcast_ref::<crate::ast::HashLiteral>() {
+        return eval_hash_literal(hash, env);
     }
 
     Some(Box::new(NULL_OBJ))
@@ -610,6 +612,40 @@ fn eval_index_expression(
         };
     }
     None
+}
+
+fn eval_hash_literal(hash: &crate::ast::HashLiteral, env: &Rc<RefCell<object::Environment>>) -> Option<Box<dyn Object>> {
+    let mut pairs: HashMap<object::HashKey, object::HashPair> = HashMap::new();
+
+    for (key_node, value_node) in &hash.pairs {
+        let key = eval(key_node.as_ref(), env);
+        if is_error(&key) {
+            return key;
+        }
+
+        let value = eval(value_node.as_ref(), env);
+        if is_error(&value) {
+            return value;
+        }
+
+        let key_obj = key.unwrap();
+        let hashable_key = key_obj.as_hashable();
+        if hashable_key.is_none() {
+            return Some(new_error!(
+                "unusable as hash key: {}",
+                key_obj.type_name()
+            ));
+        }
+
+        let hash_key = hashable_key.unwrap().hash_key();
+        pairs.insert(hash_key, object::HashPair {
+            key: key_obj,
+            value: value.unwrap(),
+        });
+    }
+
+    Some(Box::new(object::Hash { pairs }))
+
 }
 
 fn apply_function(
