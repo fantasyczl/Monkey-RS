@@ -1468,4 +1468,12 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_error_handling_for_index() {
+        let input = r#"{ "name": "Monkey" }[fn(x) { x }];"#;
+
+        let evaluated = test_eval(input);
+        assert!(evaluated.is_some(), "Expected an object, but got None");
+    }
 }
