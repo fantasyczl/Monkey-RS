@@ -604,6 +604,21 @@ fn eval_index_expression(
                     index_obj.type_name()
                 ))
             }
+        } else if let Some(hash_obj) = left_obj.as_hash() {
+            let hashable_index = index_obj.as_hashable();
+            if hashable_index.is_none() {
+                return Some(new_error!(
+                    "unusable as hash key: {}",
+                    index_obj.type_name()
+                ));
+            }
+
+            let hash_key = hashable_index.unwrap().hash_key();
+            if let Some(hash_pair) = hash_obj.pairs.get(&hash_key) {
+                Some(hash_pair.value.clone_box())
+            } else {
+                Some(Box::new(NULL_OBJ))
+            }
         } else {
             Some(new_error!(
                 "index operator not supported: {}",
@@ -1405,6 +1420,52 @@ mod tests {
         for (expected_key, expected_value) in expected {
             let pair = hash.pairs.get(&expected_key).unwrap();
             test_integer_object(Some(pair.value.clone_box()), expected_value);
+        }
+    }
+
+    #[test]
+    fn test_hash_index_expressions() {
+        struct Case {
+            input: &'static str,
+            expected: Option<i64>,
+        }
+        let tests = vec![
+            Case {
+                input: r#"{ "foo": 5 }["foo"]"#,
+                expected: Some(5),
+            },
+            Case {
+                input: r#"{ "foo": 5 }["bar"]"#,
+                expected: None,
+            },
+            Case {
+                input: r#"let key = "foo"; { "foo": 5 }[key]"#,
+                expected: Some(5),
+            },
+            Case {
+                input: r#"{ 5: 5 }[5]"#,
+                expected: Some(5),
+            },
+            Case {
+                input: r#"{ true: 5 }[true]"#,
+                expected: Some(5),
+            },
+            Case {
+                input: r#"{ false: 5 }[false]"#,
+                expected: Some(5),
+            },
+        ];
+
+        for test in tests {
+            println!("Testing input: {}", test.input);
+            let object = test_eval(test.input);
+            if let Some(expected_value) = test.expected {
+                test_integer_object(object, expected_value);
+            } else {
+                assert!(object.is_some(), "Expected an object, but got None");
+                let object = object.unwrap();
+                test_null_object(&object);
+            }
         }
     }
 }
