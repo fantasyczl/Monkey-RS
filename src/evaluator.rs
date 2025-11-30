@@ -1,10 +1,10 @@
-use once_cell::sync::Lazy;
 use crate::ast::{
     Boolean, ExpressionStatement, InfixExpression, IntegerLiteral, Node, PrefixExpression,
     Statement,
 };
 use crate::object;
 use crate::object::Object;
+use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -148,13 +148,17 @@ fn push_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
 static BUILTINS: Lazy<HashMap<&'static str, object::Builtin>> = Lazy::new(|| {
     let mut m = HashMap::new();
     m.insert("len", object::Builtin { func: len_builtin });
-    m.insert("first", object::Builtin { func: first_builtin });
+    m.insert(
+        "first",
+        object::Builtin {
+            func: first_builtin,
+        },
+    );
     m.insert("last", object::Builtin { func: last_builtin });
     m.insert("rest", object::Builtin { func: rest_builtin });
     m.insert("push", object::Builtin { func: push_builtin });
     m
 });
-
 
 pub fn eval(node: &dyn Node, env: &Rc<RefCell<object::Environment>>) -> Option<Box<dyn Object>> {
     if let Some(program) = node.as_program() {
@@ -603,7 +607,7 @@ fn eval_index_expression(
                 "index operator not supported: {}",
                 left_obj.type_name()
             ))
-        }
+        };
     }
     None
 }
@@ -666,7 +670,7 @@ fn extend_function_env(
 mod tests {
     use super::*;
     use crate::lexer::Lexer;
-    use crate::object::Object;
+    use crate::object::{Hashable, Object};
     use crate::parser::Parser;
 
     #[test]
@@ -1277,7 +1281,6 @@ mod tests {
         test_integer_object(Some(array.elements[0].clone_box()), 1);
         test_integer_object(Some(array.elements[1].clone_box()), 4);
         test_integer_object(Some(array.elements[2].clone_box()), 6);
-
     }
 
     #[test]
@@ -1332,6 +1335,40 @@ mod tests {
                 let object = object.unwrap();
                 test_null_object(&object);
             }
+        }
+    }
+
+    #[test]
+    fn test_hash_literals() {
+        let input = r#"
+        let two = "two";
+        { "one": 10 - 9,
+          two: 1 + 1,
+          "thr" + "ee": 6 / 2,
+          4: 4,
+          true: 5,
+          false: 6 }
+        "#;
+
+        let mut expected = HashMap::new();
+        expected.insert(object::STRING{value: "one".to_string()}.hash_key(), 10 - 9);
+        expected.insert(object::STRING{value: "two".to_string()}.hash_key(), 1+1);
+        expected.insert(object::STRING{value: "three".to_string()}.hash_key(), 6/2);
+        expected.insert(object::Integer{value: 4}.hash_key(), 4);
+        expected.insert(object::Boolean{value: true}.hash_key(), 5);
+        expected.insert(object::Boolean{value: false}.hash_key(), 6);
+
+        let evaluated = test_eval(input);
+        assert!(evaluated.is_some(), "Expected an object, but got None");
+        let evaluated = evaluated.unwrap();
+
+        assert_eq!(evaluated.type_name(), object::HASH_OBJ);
+        let hash = evaluated.as_hash().unwrap();
+
+        assert_eq!(hash.pairs.len(), expected.len());
+        for (expected_key, expected_value) in expected {
+            let pair = hash.pairs.get(&expected_key).unwrap();
+            test_integer_object(Some(pair.value.clone_box()), expected_value);
         }
     }
 }

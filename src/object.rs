@@ -57,6 +57,7 @@ pub trait Object {
         None
     }
     fn as_array(&self) -> Option<&Array> {None}
+    fn as_hash(&self) -> Option<&Hash> {None}
 }
 
 #[derive(Debug, Clone)]
@@ -411,6 +412,10 @@ impl Object for Hash {
 
     fn clone_box(&self) -> Box<dyn Object> {
         Box::new(self.clone())
+    }
+
+    fn as_hash(&self) -> Option<&Hash> {
+        Some(self)
     }
 }
 
