@@ -58,9 +58,9 @@ fn first_builtin(args: Vec<Box<dyn Object>>) -> Option<Box<dyn Object>> {
     let arg = &args[0];
     if let Some(array_obj) = arg.as_array() {
         if !array_obj.elements.is_empty() {
-            return Some(array_obj.elements[0].clone_box());
+            Some(array_obj.elements[0].clone_box())
         } else {
-            return Some(Box::new(NULL_OBJ));
+            Some(Box::new(NULL_OBJ))
         }
     } else {
         Some(new_error!(
@@ -329,10 +329,10 @@ fn eval_prefix_expression(
 
 fn eval_bang_operator_expression(right: Option<Box<dyn Object>>) -> Option<Box<dyn Object>> {
     match right {
-        None => return Some(native_bool_to_boolean_object(true)), // !null is true
+        None => Some(native_bool_to_boolean_object(true)), // !null is true
         Some(obj) => {
             if let Some(b) = obj.as_boolean() {
-                return Some(native_bool_to_boolean_object(!b.value));
+                Some(native_bool_to_boolean_object(!b.value))
             } else if let Some(i) = obj.as_integer() {
                 return Some(native_bool_to_boolean_object(i.value == 0));
             } else {
@@ -344,10 +344,10 @@ fn eval_bang_operator_expression(right: Option<Box<dyn Object>>) -> Option<Box<d
 
 fn eval_minus_operator_expression(right: Option<Box<dyn Object>>) -> Option<Box<dyn Object>> {
     if let Some(obj) = right {
-        if let Some(i) = obj.as_integer() {
-            return Some(Box::new(object::Integer { value: -i.value }));
+        return if let Some(i) = obj.as_integer() {
+            Some(Box::new(object::Integer { value: -i.value }))
         } else {
-            return Some(new_error!("unknown operator: -{}", obj.type_name()));
+            Some(new_error!("unknown operator: -{}", obj.type_name()))
         }
     }
     None
@@ -445,17 +445,17 @@ fn eval_integer_infix_expression(
     operator: &str,
 ) -> Option<Box<dyn Object>> {
     if let (Some(left_obj), Some(right_obj)) = (left, right) {
-        if let (Some(left_int), Some(right_int)) = (left_obj.as_integer(), right_obj.as_integer()) {
-            return Some(Box::new(object::Integer {
+        return if let (Some(left_int), Some(right_int)) = (left_obj.as_integer(), right_obj.as_integer()) {
+            Some(Box::new(object::Integer {
                 value: op(left_int.value, right_int.value),
-            }));
+            }))
         } else {
-            return Some(new_error!(
+            Some(new_error!(
                 "Type mismatch: {} {} {}",
                 left_obj.type_name(),
                 operator,
                 right_obj.type_name()
-            ));
+            ))
         }
     }
     None
@@ -505,12 +505,12 @@ fn eval_if_expression(
     }
 
     if let Some(cond_obj) = condition {
-        if if_truthy(&*cond_obj) {
-            return eval(&ie.consequence, env);
+        return if if_truthy(&*cond_obj) {
+            eval(&ie.consequence, env)
         } else if let Some(alternative) = &ie.alternative {
-            return eval(alternative, env);
+            eval(alternative, env)
         } else {
-            return Some(Box::new(NULL_OBJ));
+            Some(Box::new(NULL_OBJ))
         }
     }
 
